@@ -1,0 +1,9 @@
+{
+  "name": "A Captive Audience",
+  "description": "A digital storytelling and media platform giving voice to incarcerated and formerly incarcerated people through authentic narratives, immersive experiences, and literary publishing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

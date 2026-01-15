@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Captive Audience | Truthful Prison Narratives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Inter:wght@100;300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='35' r='20' fill='%23e67e22'/%3E%3Cpath d='M35 85L42 50H58L65 85H35Z' fill='%23e67e22'/%3E%3C/svg%3E">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <style>
+        :root {
+            --accent: #e67e22;
+            --accent-glow: rgba(230, 126, 34, 0.4);
+            --white-glow: rgba(255, 255, 255, 0.15);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            color: #f5f5f5;
+            letter-spacing: -0.01em;
+        }
+        h1, h2, h3, .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+        .glow-white {
+            text-shadow: 0 0 20px var(--white-glow);
+        }
+        .glow-orange {
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+        .border-glow {
+            box-shadow: 0 0 15px var(--white-glow);
+        }
+        .accent-button-glow {
+            box-shadow: 0 10px 40px -10px var(--accent-glow);
+        }
+        /* Stealth Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        
+        @keyframes pulse-orange {
+            0%, 100% { box-shadow: 0 0 20px rgba(230, 126, 34, 0.2); }
+            50% { box-shadow: 0 0 40px rgba(230, 126, 34, 0.5); }
+        }
+        .animate-pulse-orange {
+            animation: pulse-orange 3s infinite ease-in-out;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
