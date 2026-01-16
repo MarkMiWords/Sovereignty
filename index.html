@@ -14,6 +14,8 @@
     <style>
         :root {
             --accent: #e67e22;
+            --accent-gold: #d4af37;
+            --accent-beige: #f5e6be;
             --accent-glow: rgba(230, 126, 34, 0.4);
             --white-glow: rgba(255, 255, 255, 0.15);
         }
@@ -26,31 +28,43 @@
         h1, h2, h3, .font-serif {
             font-family: 'Playfair Display', serif;
         }
-        .glow-white {
-            text-shadow: 0 0 20px var(--white-glow);
+        
+        /* Living Amber Text Animation */
+        @keyframes living-amber-text {
+            0%, 100% { color: var(--accent); text-shadow: 0 0 15px rgba(230, 126, 34, 0.4); }
+            40% { color: var(--accent-gold); text-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
+            70% { color: var(--accent-beige); text-shadow: 0 0 10px rgba(245, 230, 190, 0.3); }
         }
-        .glow-orange {
-            text-shadow: 0 0 15px var(--accent-glow);
+
+        /* Living Amber Background Animation */
+        @keyframes living-amber-bg {
+            0%, 100% { background-color: var(--accent); box-shadow: 0 0 30px rgba(230, 126, 34, 0.3); }
+            40% { background-color: var(--accent-gold); box-shadow: 0 0 40px rgba(212, 175, 55, 0.4); }
+            70% { background-color: var(--accent-beige); box-shadow: 0 0 20px rgba(245, 230, 190, 0.2); }
         }
-        .border-glow {
-            box-shadow: 0 0 15px var(--white-glow);
+
+        .animate-living-amber {
+            animation: living-amber-text 10s infinite ease-in-out;
         }
-        .accent-button-glow {
-            box-shadow: 0 10px 40px -10px var(--accent-glow);
+
+        .animate-living-amber-bg {
+            animation: living-amber-bg 10s infinite ease-in-out;
         }
+
+        .glow-white { text-shadow: 0 0 25px rgba(255, 255, 255, 0.2); }
+        .glow-amber { text-shadow: 0 0 20px rgba(230, 126, 34, 0.5); }
+
         /* Stealth Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #050505; }
         ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-gold); }
         
-        @keyframes pulse-orange {
-            0%, 100% { box-shadow: 0 0 20px rgba(230, 126, 34, 0.2); }
-            50% { box-shadow: 0 0 40px rgba(230, 126, 34, 0.5); }
+        @keyframes subtle-drift { 
+          from { transform: scale(1.02) translate(0%, 0%); } 
+          to { transform: scale(1.08) translate(1%, 1%); } 
         }
-        .animate-pulse-orange {
-            animation: pulse-orange 3s infinite ease-in-out;
-        }
+        .animate-subtle-drift { animation: subtle-drift 120s infinite alternate ease-in-out; }
     </style>
 <script type="importmap">
 {

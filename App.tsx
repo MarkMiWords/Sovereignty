@@ -35,9 +35,9 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-[#050505]">
-        <Navbar onReportBug={() => setIsBugModalOpen(true)} />
         <ScrollToTop />
-        <main className="flex-grow pt-48">
+        <Navbar onReportBug={() => setIsBugModalOpen(true)} />
+        <main className="flex-grow pt-24">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/published-books" element={<PublishedBooks />} />

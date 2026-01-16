@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Book } from '../types';
@@ -19,7 +18,7 @@ interface PublishedBooksProps {
   isAuthenticated?: boolean;
 }
 
-const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated }) => {
+const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated = true }) => {
   const [books, setBooks] = useState<Book[]>([]);
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [newBook, setNewBook] = useState<Partial<Book>>({
@@ -80,29 +79,34 @@ const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated }) => {
     localStorage.setItem('aca_published_books', JSON.stringify(updated.filter(b => !SAMPLE_BOOKS.find(s => s.id === b.id))));
   };
 
+  const triggerFileUpload = () => {
+    if (coverInputRef.current) {
+      coverInputRef.current.click();
+    }
+  };
+
   return (
     <div className="bg-[#050505] min-h-screen text-white pb-32">
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 border-b border-white/5">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div>
             <span className="text-accent tracking-[0.6em] uppercase text-[10px] font-bold mb-6 block">The Storefront</span>
-            <h1 className="text-6xl md:text-9xl font-serif font-bold mb-12 italic leading-none tracking-tighter">
-              Published <span className="text-accent">Books.</span>
+            <h1 className="text-6xl md:text-9xl font-serif font-black mb-12 italic leading-none tracking-tighter">
+              Published <span className="animate-living-amber">Books.</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">
               "From the shadow of the cell to the light of the retail shelf. These are the narratives that broke through."
             </p>
           </div>
-          {isAuthenticated && (
-            <div className="pb-12">
-              <button 
-                onClick={() => setIsAddingBook(true)}
-                className="bg-accent text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl shadow-accent/20 hover:bg-orange-600 transition-all rounded-sm"
-              >
-                Register New Edition
-              </button>
-            </div>
-          )}
+          {/* Enabled button for user adding book covers */}
+          <div className="pb-12">
+            <button 
+              onClick={() => setIsAddingBook(true)}
+              className="bg-accent text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl shadow-accent/20 hover:bg-orange-600 transition-all rounded-sm"
+            >
+              Register New Edition
+            </button>
+          </div>
         </div>
       </section>
 
@@ -128,7 +132,7 @@ const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated }) => {
                 <Link to={`/book/${book.slug}`} className="flex-grow border border-white/10 text-white text-center py-4 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-white hover:text-black transition-all">
                   Explore Edition
                 </Link>
-                {isAuthenticated && !SAMPLE_BOOKS.find(s => s.id === book.id) && (
+                {!SAMPLE_BOOKS.find(s => s.id === book.id) && (
                   <button 
                     onClick={() => deleteBook(book.id)}
                     className="ml-4 p-4 text-red-900 hover:text-red-500 transition-colors"
@@ -141,20 +145,18 @@ const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated }) => {
             </div>
           ))}
           
-          {isAuthenticated && (
-            <div 
-              onClick={() => setIsAddingBook(true)}
-              className="border border-white/5 border-dashed p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] hover:border-accent/40 transition-all group aspect-[2/3] cursor-pointer rounded-sm"
-            >
-               <div className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center mb-6 group-hover:border-accent/40">
-                  <span className="text-accent text-2xl font-serif italic">+</span>
-               </div>
-               <h4 className="text-white font-serif italic text-xl mb-4">Register Edition</h4>
-               <p className="text-[9px] text-gray-600 uppercase tracking-widest leading-loose">
-                 Log your latest work into the storefront registry.
-               </p>
-            </div>
-          )}
+          <div 
+            onClick={() => setIsAddingBook(true)}
+            className="border border-white/5 border-dashed p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] hover:border-accent/40 transition-all group aspect-[2/3] cursor-pointer rounded-sm"
+          >
+             <div className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center mb-6 group-hover:border-accent/40">
+                <span className="text-accent text-2xl font-serif italic">+</span>
+             </div>
+             <h4 className="text-white font-serif italic text-xl mb-4">Register Edition</h4>
+             <p className="text-[9px] text-gray-600 uppercase tracking-widest leading-loose">
+               Log your latest work into the storefront registry.
+             </p>
+          </div>
         </div>
       </div>
 
@@ -181,7 +183,7 @@ const PublishedBooks: React.FC<PublishedBooksProps> = ({ isAuthenticated }) => {
                <div className="space-y-8">
                   <div className="space-y-2">
                     <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Cover Art</label>
-                    <div onClick={() => coverInputRef.current?.click()} className="w-full aspect-[2/3] bg-black border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer group hover:border-accent/40 transition-all relative overflow-hidden rounded-sm">
+                    <div onClick={triggerFileUpload} className="w-full aspect-[2/3] bg-black border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer group hover:border-accent/40 transition-all relative overflow-hidden rounded-sm">
                       {newBook.coverUrl ? (
                         <img src={newBook.coverUrl} className="w-full h-full object-cover" alt="Preview" />
                       ) : (

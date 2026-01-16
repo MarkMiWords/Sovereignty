@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface LogoProps {
@@ -9,36 +8,43 @@ interface LogoProps {
 /**
  * A Captive Audience Logo
  * Standard ViewBox: 0 0 512 512
- * Size: Tripled (w-48 h-48)
- * The text is now fully contained within the SVG paths.
+ * This version uses precise internal positioning to prevent clipping of the seal.
  */
 const Logo: React.FC<LogoProps> = ({ variant = 'light', className = '' }) => {
   const primaryColor = variant === 'light' ? '#ffffff' : '#000000';
   const contrastColor = variant === 'light' ? '#050505' : '#ffffff';
-  const accentColor = '#e67e22';
 
   return (
     <div className={`flex flex-col items-center justify-center text-center ${className}`}>
       <svg 
         viewBox="0 0 512 512" 
-        className="w-48 h-48 overflow-visible" 
+        className="w-full h-full overflow-visible" 
         xmlns="http://www.w3.org/2000/svg"
-        // Fix: React uses camelCase for SVG attributes like xmlSpace
         xmlSpace="preserve"
       >
         <defs>
           <clipPath id="aca-icon-clip">
             <path d="m154.63 39.699h71.234v140.22h-71.234z"/>
           </clipPath>
-          <filter id="aca-logo-glow" x="-20%" y="-20%" width="140%" height="140%">
-            {/* Increased deviation for 3x larger size */}
-            <feGaussianBlur stdDeviation="15" result="blur" />
+          
+          <linearGradient id="living-amber-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#e67e22">
+              <animate attributeName="stop-color" values="#e67e22;#d4af37;#f5e6be;#e67e22" dur="8s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="100%" stopColor="#d35400">
+              <animate attributeName="stop-color" values="#d35400;#b8860b;#e5d3b3;#d35400" dur="8s" repeatCount="indefinite" />
+            </stop>
+          </linearGradient>
+
+          <filter id="aca-logo-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="10" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
         
-        <g transform="matrix(1.3064 0 0 1.3064 10.605 16.128)" filter="url(#aca-logo-glow)">
-          {/* Typographic Foundation (The Brand Name) */}
+        {/* Matrix set to center the logo and drop it slightly within the 512x512 box */}
+        <g transform="matrix(1 0 0 1 60 60)" filter="url(#aca-logo-glow)">
+          {/* Typographic Foundation */}
           <g fill={primaryColor}>
             <g transform="translate(34.171 247.02)">
               <path d="m29.906 0.85938c-5.1055 0-9.7188-1.1094-13.844-3.3281s-7.3711-5.2891-9.7344-9.2188c-2.3555-3.9375-3.5312-8.3828-3.5312-13.344 0-4.957 1.1758-9.4062 3.5312-13.344 2.3633-3.9375 5.6094-7.0156 9.7344-9.2344s8.7578-3.3281 13.906-3.3281c4.3438 0 8.2656 0.76562 11.766 2.2969 3.5078 1.5234 6.457 3.7148 8.8438 6.5781l-7.4375 6.875c-3.3984-3.9141-7.5938-5.875-12.594-5.875-3.1055 0-5.875 0.68359-8.3125 2.0469-2.4297 1.3555-4.3242 3.25-5.6875 5.6875-1.3555 2.4297-2.0312 5.1953-2.0312 8.2969 0 3.0938 0.67578 5.8594 2.0312 8.2969 1.3633 2.4297 3.2578 4.3242 5.6875 5.6875 2.4375 1.3555 5.207 2.0312 8.3125 2.0312 5 0 9.1953-1.9766 12.594-5.9375l7.4375 6.875c-2.3867 2.9062-5.3438 5.125-8.875 6.6562-3.5312 1.5195-7.4648 2.2812-11.797 2.2812z"/>
@@ -87,9 +93,9 @@ const Logo: React.FC<LogoProps> = ({ variant = 'light', className = '' }) => {
             </g>
           </g>
           
-          {/* Brand Seal */}
+          {/* Brand Seal (The Key) */}
           <g clipPath="url(#aca-icon-clip)">
-            <path d="m190.23 39.703c8.9453 0 17.043 3.625 22.902 9.4766 5.8594 5.8516 9.4844 13.941 9.4844 22.879 0 4.1094-0.78516 8.0625-2.1992 11.711-1.4727 3.7891-3.6328 7.2188-6.3203 10.148-1.1562 1.2617-1.9414 2.6719-2.3242 4.1719-0.39063 1.4922-0.39063 3.1133 4e-3 4.7891l13.535 56.816c0.59375 2.4922 0.62109 4.9688 0.0937 7.3555-0.52344 2.3711-1.5938 4.6016-3.1992 6.625-1.6055 2.0312-3.5312 3.5898-5.7109 4.6445-2.1953 1.0625-4.6133 1.6133-7.1875 1.6133h-38.121c-2.5781 0-4.9961-0.55078-7.1875-1.6133-2.1797-1.0547-4.1094-2.6133-5.7148-4.6445-1.6055-2.0234-2.6758-4.2617-3.1992-6.625-0.52735-2.3867-0.5-4.8633 0.0937-7.3555l13.535-56.816c0.39844-1.6758 0.39844-3.293 8e-3 -4.7891-0.39063-1.5-1.1758-2.9102-2.3242-4.1719-2.6914-2.9297-4.8516-6.3594-6.3242-10.148-1.418-3.6484-2.1992-7.6016-2.1992-11.711 0-8.9375 3.625-17.027 9.4844-22.879 5.8594-5.8516 13.961-9.4766 22.902-9.4766z" fill={accentColor} fillRule="evenodd"/>
+            <path d="m190.23 39.703c8.9453 0 17.043 3.625 22.902 9.4766 5.8594 5.8516 9.4844 13.941 9.4844 22.879 0 4.1094-0.78516 8.0625-2.1992 11.711-1.4727 3.7891-3.6328 7.2188-6.3203 10.148-1.1562 1.2617-1.9414 2.6719-2.3242 4.1719-0.39063 1.4922-0.39063 3.1133 4e-3 4.7891l13.535 56.816c0.59375 2.4922 0.62109 4.9688 0.0937 7.3555-0.52344 2.3711-1.5938 4.6016-3.1992 6.625-1.6055 2.0312-3.5312 3.5898-5.7109 4.6445-2.1953 1.0625-4.6133 1.6133-7.1875 1.6133h-38.121c-2.5781 0-4.9961-0.55078-7.1875-1.6133-2.1797-1.0547-4.1094-2.6133-5.7148-4.6445-1.6055-2.0234-2.6758-4.2617-3.1992-6.625-0.52735-2.3867-0.5-4.8633 0.0937-7.3555l13.535-56.816c0.39844-1.6758 0.39844-3.293 8e-3 -4.7891-0.39063-1.5-1.1758-2.9102-2.3242-4.1719-2.6914-2.9297-4.8516-6.3594-6.3242-10.148-1.418-3.6484-2.1992-7.6016-2.1992-11.711 0-8.9375 3.625-17.027 9.4844-22.879 5.8594-5.8516 13.961-9.4766 22.902-9.4766z" fill="url(#living-amber-gradient)" fillRule="evenodd"/>
           </g>
           
           {/* Sovereign Initial */}

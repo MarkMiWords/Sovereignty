@@ -5,18 +5,8 @@ import { Link } from 'react-router-dom';
 const Home: React.FC = () => {
   return (
     <div className="bg-[#050505]">
-      {/* Beta Banner */}
-      <div className="bg-orange-500/5 border-b border-orange-500/10 py-3 text-center relative z-20">
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-6">
-          <p className="text-[9px] font-black text-orange-500 uppercase tracking-[0.5em] flex items-center gap-3">
-            <span className="w-1 h-1 rounded-full bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(230,126,34,1)]"></span>
-            Sovereign Protocol Beta 4.0
-          </p>
-        </div>
-      </div>
-
       {/* Hero Section */}
-      <section className="relative h-[100vh] flex items-center justify-center overflow-hidden px-6 text-center">
+      <section className="relative h-[85vh] flex items-center justify-center overflow-hidden px-6 text-center">
         {/* Background Layer */}
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-black/50 z-10"></div>
@@ -30,12 +20,12 @@ const Home: React.FC = () => {
         </div>
 
         <div className="relative z-20 max-w-6xl px-4">
-          <span className="text-orange-500 tracking-[0.9em] uppercase text-[10px] font-black mb-8 block animate-fade-in glow-orange drop-shadow-[0_0_10px_rgba(230,126,34,0.5)]">
+          <span className="text-orange-500 tracking-[0.9em] uppercase text-[10px] font-black mb-8 block animate-fade-in animate-living-amber glow-orange drop-shadow-[0_0_10px_rgba(230,126,34,0.5)]">
             A digital storytelling and media platform
           </span>
           <h1 className="text-6xl md:text-9xl font-serif font-black mb-8 leading-[0.9] tracking-tighter text-white animate-slide-up glow-white">
             Tell your <br />
-            <span className="text-orange-500 italic font-serif glow-orange">story.</span>
+            <span className="text-orange-500 italic font-serif glow-orange animate-living-amber">story.</span>
           </h1>
           
           <p className="text-xl md:text-2xl text-gray-300 font-light max-w-3xl mx-auto leading-relaxed italic mb-12 animate-fade-in delay-300">
@@ -43,7 +33,7 @@ const Home: React.FC = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-10 animate-fade-in mt-12">
-            <Link to="/author-builder" className="bg-orange-500 hover:bg-orange-600 text-white px-16 py-6 font-black tracking-[0.6em] uppercase text-[10px] transition-all animate-pulse-orange shadow-2xl rounded-sm">
+            <Link to="/author-builder" className="bg-orange-500 hover:bg-orange-600 text-white px-16 py-6 font-black tracking-[0.6em] uppercase text-[10px] transition-all animate-pulse-orange shadow-2xl rounded-sm animate-living-amber-bg">
               Start Your Sheet
             </Link>
             <Link to="/narratives" className="bg-white/5 hover:bg-white/10 text-white px-16 py-6 font-black tracking-[0.6em] uppercase text-[10px] border border-white/10 backdrop-blur-3xl transition-all hover:border-white/30 rounded-sm">
@@ -58,16 +48,16 @@ const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid lg:grid-cols-2 gap-32 items-center">
             <div className="space-y-16">
-              <span className="text-orange-500 tracking-[0.6em] uppercase text-[9px] font-black block glow-orange">Mission Statement</span>
+              <span className="text-orange-500 tracking-[0.6em] uppercase text-[9px] font-black block glow-orange animate-living-amber">Mission Statement</span>
               <h2 className="text-6xl md:text-7xl font-serif font-black italic leading-[1] text-white tracking-tighter">
                 Truth from <br />
-                <span className="text-orange-500 glow-orange">The Inside.</span>
+                <span className="text-orange-500 glow-orange animate-living-amber">The Inside.</span>
               </h2>
               <p className="text-2xl text-gray-400 font-light leading-relaxed italic border-l-2 border-orange-500/20 pl-10 py-6">
                 Our platform curates authentic, unvarnished narratives from those currently and formerly incarcerated, creating a digital bridge to the world.
               </p>
               <div className="pt-12">
-                <Link to="/origin-story" className="text-orange-500 text-[11px] font-black uppercase tracking-[0.5em] hover:text-white transition-all underline underline-offset-[12px] decoration-orange-500/30">Read the Architect's Journey →</Link>
+                <Link to="/origin-story" className="text-orange-500 text-[11px] font-black uppercase tracking-[0.5em] hover:text-white transition-all underline underline-offset-[12px] decoration-orange-500/30 animate-living-amber">Read the Architect's Journey →</Link>
               </div>
             </div>
             
