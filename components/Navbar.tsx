@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Logo from './Logo';
@@ -18,22 +17,22 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
       <div className="w-full h-24 flex items-center justify-between">
         
         {/* 
-            Left Section: Precision centering of the logo over the sidebar.
-            Sidebar width is w-80 (320px).
-            Reduced logo size to h-42 as requested.
-            Adjusted vertical drop (pt-32) to keep it centered.
+            Left Section: Centering the logo over the sidebar.
+            Increased to h-48 to match the footer's visual weight.
+            Adjusted pt-36 to center it vertically relative to the 24px navbar while 
+            allowing the lower half to hang gracefully over the sidebar area.
         */}
         <div className="flex items-center h-full">
-          <div className="w-80 flex justify-center items-center h-full pt-32 overflow-visible">
-            <Link to="/" className="group block overflow-visible">
+          <div className="w-80 flex justify-center items-center h-full pt-36 overflow-visible pointer-events-none">
+            <Link to="/" className="group block overflow-visible pointer-events-auto">
               <Logo 
                 variant="light" 
-                className="h-42 w-auto transition-all duration-500 group-hover:scale-105 filter drop-shadow-[0_0_30px_rgba(255,255,255,0.08)]" 
+                className="h-48 w-auto transition-all duration-500 group-hover:scale-105 filter drop-shadow-[0_0_30px_rgba(255,255,255,0.08)]" 
               />
             </Link>
           </div>
           
-          {/* Sovereign Protocol Beta Tag: Adjusted position */}
+          {/* Sovereign Protocol Beta Tag */}
           <div className="hidden xl:flex items-center self-end pb-8 ml-8">
              <span className="text-[8px] font-black text-orange-500/60 uppercase tracking-[0.4em] flex items-center gap-2">
                <span className="w-1 h-1 rounded-full bg-orange-500 animate-pulse animate-living-amber-bg"></span>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { queryPartner, smartSoap, jiveContent, generateSpeech, analyzeVoiceAndDialect } from '../services/geminiService';
@@ -120,7 +119,7 @@ const AuthorBuilder: React.FC = () => {
   const findChapterById = (list: Chapter[], id: string): Chapter | undefined => {
     for (const c of list) {
       if (c.id === id) return c;
-      if (c.subChapters) {
+      if (c.subChapters && c.subChapters.length > 0) {
         const found = findChapterById(c.subChapters, id);
         if (found) return found;
       }
@@ -308,7 +307,6 @@ const AuthorBuilder: React.FC = () => {
         const result = await mammoth.convertToHtml({ arrayBuffer });
         const html = result.value;
         
-        // Basic parser to split by H1/H2
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const nodes = Array.from(doc.body.childNodes);
@@ -319,10 +317,10 @@ const AuthorBuilder: React.FC = () => {
         nodes.forEach((node, idx) => {
           const text = node.textContent?.trim() || "";
           if (node.nodeName === 'H1') {
-            currentChapter = { id: `h1-${idx}`, title: text, content: '', order: newChapters.length, media: [], subChapters: [] };
+            currentChapter = { id: `h1-${idx}-${Date.now()}`, title: text, content: '', order: newChapters.length, media: [], subChapters: [] };
             newChapters.push(currentChapter);
           } else if (node.nodeName === 'H2' && currentChapter) {
-            currentChapter.subChapters?.push({ id: `h2-${idx}`, title: text, content: '', order: currentChapter.subChapters.length, media: [], subChapters: [] });
+            currentChapter.subChapters?.push({ id: `h2-${idx}-${Date.now()}`, title: text, content: '', order: currentChapter.subChapters.length, media: [], subChapters: [] });
           } else if (text) {
              const target = currentChapter?.subChapters && currentChapter.subChapters.length > 0 
                ? currentChapter.subChapters[currentChapter.subChapters.length - 1] 
@@ -330,8 +328,7 @@ const AuthorBuilder: React.FC = () => {
              
              if (target) target.content += text + '\n\n';
              else {
-               // Fallback if no header yet
-               currentChapter = { id: `h1-init-${idx}`, title: 'Imported Fragment', content: text + '\n\n', order: 0, media: [], subChapters: [] };
+               currentChapter = { id: `h1-init-${idx}-${Date.now()}`, title: 'Imported Fragment', content: text + '\n\n', order: 0, media: [], subChapters: [] };
                newChapters.push(currentChapter);
              }
           }
@@ -341,7 +338,6 @@ const AuthorBuilder: React.FC = () => {
           setChapters(newChapters);
           setActiveChapterId(newChapters[0].id);
         } else {
-          // Simple text fallback
           setChapters([{ id: '1', title: file.name.replace('.docx', ''), content: html.replace(/<[^>]*>/g, '\n'), order: 0, media: [], subChapters: [] }]);
         }
       };
@@ -406,7 +402,7 @@ const AuthorBuilder: React.FC = () => {
     <div className="flex flex-col">
       <div 
         onClick={() => setActiveChapterId(chapter.id)} 
-        className={`py-3 px-4 cursor-pointer border-l-2 transition-all flex items-center gap-2 ${activeChapterId === chapter.id ? 'bg-orange-500/15 border-orange-500 text-orange-500' : 'border-transparent text-gray-700 hover:text-gray-400'}`}
+        className={`py-3 px-4 cursor-pointer border-l-2 transition-all flex items-center gap-2 ${activeChapterId === chapter.id ? 'bg-orange-500/15 border-orange-500 text-orange-500 shadow-[inset_12px_0_30px_-15px_rgba(230,126,34,0.1)]' : 'border-transparent text-gray-700 hover:text-gray-400'}`}
         style={{ paddingLeft: `${(depth + 1) * 16}px` }}
       >
         {depth > 0 && <span className="text-orange-500/30 font-serif">›</span>}
@@ -449,7 +445,7 @@ const AuthorBuilder: React.FC = () => {
 
       {/* Sidebar: Registry (Now with Hierarchy) */}
       <aside className="w-80 border-r border-white/5 bg-[#080808] flex flex-col shrink-0">
-        <div className="flex-grow overflow-y-auto pt-24 pb-4 custom-scrollbar">
+        <div className="flex-grow overflow-y-auto pt-32 pb-4 custom-scrollbar">
           {chapters.map(c => <SidebarItem key={c.id} chapter={c} />)}
         </div>
         <div className="px-6 py-4 border-t border-white/5 bg-black/40">
@@ -605,7 +601,56 @@ const AuthorBuilder: React.FC = () => {
            <div className={`w-2 h-2 rounded-full ${isPartnerLoading ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`}></div>
         </div>
 
+        {/* RESTORED HELP BOX BELOW HEADING */}
+        <div className="shrink-0 px-10 py-4 bg-orange-500/5 border-b border-white/5">
+           <Link to="/support" className="group flex items-center justify-between">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 group-hover:text-accent transition-colors">Help Me Too...</span>
+              <svg className="w-4 h-4 text-accent/40 group-hover:text-accent transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+           </Link>
+        </div>
+
+        {/* RESTORED WRAPPER DROPDOWNS */}
+        <div className="shrink-0 p-6 border-b border-white/5 bg-black/40">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[8px] font-black text-gray-600 uppercase tracking-widest block">Dialect Tone</label>
+                <div className="relative">
+                  <select 
+                    value={style} 
+                    onChange={(e) => setStyle(e.target.value)}
+                    className="w-full bg-black border border-white/20 text-[9px] text-gray-300 p-2.5 focus:border-orange-500 outline-none appearance-none font-bold tracking-widest uppercase cursor-pointer rounded-sm"
+                  >
+                    {STYLES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[8px] font-black text-gray-600 uppercase tracking-widest block">Region</label>
+                <div className="relative">
+                  <select 
+                    value={region} 
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="w-full bg-black border border-white/20 text-[9px] text-gray-300 p-2.5 focus:border-orange-500 outline-none appearance-none font-bold tracking-widest uppercase cursor-pointer rounded-sm"
+                  >
+                    {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </div>
+
         <div className="flex-grow overflow-y-auto p-10 space-y-8 custom-scrollbar bg-black/10">
+           {messages.length === 0 && (
+             <div className="h-full flex flex-col items-center justify-center opacity-30 text-center px-4">
+                <p className="text-xs italic font-serif leading-relaxed">"I am tuned into the {region} archive. Ready to refine your truth."</p>
+             </div>
+           )}
            {messages.map((m, i) => (
              <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start animate-fade-in'}`}>
                 <div className={`max-w-[90%] p-6 rounded-sm text-sm font-serif leading-relaxed ${m.role === 'user' ? 'bg-white/5 border border-white/10 text-gray-500 italic' : 'bg-orange-500/5 border border-orange-500/20 text-gray-300'}`}>
@@ -626,8 +671,8 @@ const AuthorBuilder: React.FC = () => {
            <div className="flex gap-2">
              <button onClick={() => handlePartnerChat()} className="flex-grow bg-white/5 hover:bg-white/10 text-gray-500 hover:text-white py-3 text-[10px] font-black uppercase tracking-[0.4em] transition-all border border-white/10 rounded-sm">Send Inquiry</button>
              
-             {/* RESTORED HELP BUTTON */}
-             <Link to="/support" className="px-4 py-3 border border-white/10 rounded-sm hover:border-orange-500/50 text-gray-600 hover:text-orange-500 transition-all flex items-center justify-center bg-black" title="Get help too...">
+             {/* FOOTER HELP BUTTON */}
+             <Link to="/support" className="px-4 py-3 border border-white/10 rounded-sm hover:border-orange-500/50 text-gray-600 hover:text-orange-500 transition-all flex items-center justify-center bg-black" title="Support Hub">
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
              </Link>
            </div>
@@ -636,6 +681,7 @@ const AuthorBuilder: React.FC = () => {
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
