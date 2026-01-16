@@ -17,29 +17,115 @@ const WRAPPER_IDENTITY = `
   Writers Reliable Assistant for Polishing Passages and Editing Rough-drafts.
 `;
 
-const DIALECT_MAP: Record<string, string> = {
-  'Australia': 'Use natural Aussie slang (mate, cobber, fair dinkum, reckoning). Tone: Gritty, dry humor, focused on Australian justice system nuances.',
-  'North America': 'Use natural US-style street vernacular (no cap, facts, state-pen, hustle). Tone: Bold, confident, focused on the American penal landscape.',
-  'United Kingdom': 'Use natural UK roadman slang (innit, bruv, peak, ends, long). Tone: Sharp, rhythmic, focused on the British carceral experience.',
-  'South America': 'Use a poetic but tough tone. Use metaphors about passion, survival, and the street. Tone: Intense, lyrical.',
-  'Europe': 'Use a sophisticated yet underground tone. Focus on shared European justice themes. Tone: Philosophical, steady.',
-  'Asia': 'Use a respectful but strictly "street-wise" tone. Focus on honor, truth, and resilience. Tone: Disciplined, rhythmic.'
-};
+/**
+ * Analyzes a user's voice sample to detect dialect, language, and persona traits.
+ * This powers the "God Mode" adaptation of the UI and the custom voice profile.
+ */
+export async function analyzeVoiceAndDialect(audioBase64: string): Promise<{ 
+  detectedLocale: string, 
+  personaInstruction: string,
+  uiTranslations: Record<string, string> 
+}> {
+  const prompt = `
+    Analyze this audio sample of a user speaking.
+    1. Identify the specific language and regional dialect (e.g., "Aussie Bogan", "London Roadman", "Spanish (Castilian Street)").
+    2. Extract a detailed persona instruction that describes their speech patterns, slang usage, and emotional tone.
+    3. Provide a list of key UI translations for the following English terms into their detected dialect:
+       - "Registry"
+       - "My Sheets"
+       - "Actions"
+       - "Speak"
+       - "Dictate"
+       - "Drop the Soap"
+       - "Mastering Suite"
+       - "New Sheet"
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [
+        {
+          parts: [
+            { inlineData: { mimeType: "audio/wav", data: audioBase64 } },
+            { text: prompt }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            detectedLocale: { type: Type.STRING },
+            personaInstruction: { type: Type.STRING },
+            uiTranslations: { 
+              type: Type.OBJECT,
+              properties: {
+                "Registry": { type: Type.STRING },
+                "My Sheets": { type: Type.STRING },
+                "Actions": { type: Type.STRING },
+                "Speak": { type: Type.STRING },
+                "Dictate": { type: Type.STRING },
+                "Drop the Soap": { type: Type.STRING },
+                "Mastering Suite": { type: Type.STRING },
+                "New Sheet": { type: Type.STRING }
+              }
+            }
+          },
+          required: ["detectedLocale", "personaInstruction", "uiTranslations"]
+        }
+      }
+    });
+
+    const data = JSON.parse(response.text || "{}");
+    return data;
+  } catch (err) {
+    console.error("Dialect Analysis Error:", err);
+    return { 
+      detectedLocale: "Global English", 
+      personaInstruction: "Standard storytelling tone.", 
+      uiTranslations: {} 
+    };
+  }
+}
+
+/**
+ * Registry search with search grounding.
+ */
+export async function queryInsight(message: string): Promise<Message> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: message,
+      config: {
+        systemInstruction: "You are an expert researcher for 'A Captive Audience'. Analyze the registry and provide insights into systemic adversity and carceral narratives. Use Google Search.",
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const sources: GroundingSource[] = groundingChunks?.map((chunk: any) => ({
+      web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
+    })).filter((s: any) => s.web?.uri) || [];
+
+    return {
+      role: 'assistant',
+      content: response.text || "No insights found.",
+      sources: sources.length > 0 ? sources : undefined
+    };
+  } catch (error) {
+    return { role: 'assistant', content: "Disconnected." };
+  }
+}
 
 export async function smartSoap(text: string, level: 'rinse' | 'scrub' | 'sanitize'): Promise<string> {
-  let prompt = "";
-  let system = "You are a specialized editor for incarcerated writers.";
+  let prompt = `Process this carceral narrative: "${text}"`;
+  let system = "You are an editor for incarcerated writers.";
   
-  if (level === 'rinse') {
-    prompt = `Lightly fix the punctuation and capitalization of the following text. Do not change words or flow: "${text}"`;
-    system = "Only fix punctuation and basic grammar. Keep the voice raw.";
-  } else if (level === 'scrub') {
-    prompt = `Clean up the grammar, flow, and clarity of this text while preserving the raw emotional grit: "${text}"`;
-    system = "Fix flow and advanced grammar. Ensure the narrative is clear but remains authentic to the author's street dialect.";
-  } else {
-    prompt = `Sanitize this text for legal safety. Remove real names of people, specific dates, or facility signatures that could cause defamation issues. Keep the story powerful but safe: "${text}"`;
-    system = "Focus on legal safety and PII. Replace names with generic placeholders like [OFFICER] or [INMATE] if necessary.";
-  }
+  if (level === 'rinse') system = "Lightly fix punctuation and grammar. Keep the raw voice.";
+  else if (level === 'scrub') system = "Clean grammar and flow. Maintain grit and dialect.";
+  else system = "Sanitize for legal safety. Remove real names and PII.";
 
   try {
     const response = await ai.models.generateContent({
@@ -57,9 +143,9 @@ export async function jiveContent(text: string, region: string): Promise<string>
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Remix the following content into rhythmic street poetry or rhyming slang specific to the ${region} region. Keep it gritty, entertaining, and punchy: "${text}"`,
+      contents: `Remix this into rhythmic slang for the ${region} region: "${text}"`,
       config: {
-        systemInstruction: "You are the Jive Master. You take prose and turn it into the language of the streets—rhythmic, rhyming, and full of cultural flavor. Don't lose the heart of the story, just change the beat.",
+        systemInstruction: "You are the Jive Master. Turn prose into rhythmic, street-flavored poetry.",
       },
     });
     return response.text || text;
@@ -68,42 +154,45 @@ export async function jiveContent(text: string, region: string): Promise<string>
   }
 }
 
-export async function generateSpeech(text: string, voiceName: string = 'Fenrir', persona: string = 'Standard'): Promise<string | undefined> {
+/**
+ * Generate Speech using Gemini 2.5 TTS.
+ * This handles both pre-built personas and the user's custom calibrated "Voice Lab" persona.
+ */
+export async function generateSpeech(text: string, voiceName: string = 'Fenrir', persona: string = 'Standard', customPersona: string = ""): Promise<string | undefined> {
   try {
-    // Instruction mapping for personas
     const personaInstructions: Record<string, string> = {
-      'Bogan': 'with a thick, gravelly Australian Bogan accent. Use drawled vowels and a casual, gritty Aussie tone.',
-      'Hillbilly': 'with a deep, rural American Appalachian/Hillbilly accent. Slow, rhythmic, and soulful.',
-      'Homeboy': 'with a confident, rhythmic urban American street flow. Genuine, warm, but street-smart.',
-      'Lad': 'with a fast-paced, energetic British "Lad" accent. Sharp and rhythmic.',
-      'Eshay': 'with a high-energy, aggressive Australian Eshay dialect. Very rhythmic and sharp.',
-      'Chav': 'with a thick, urban UK Chav accent. Gritty and street-wise.',
-      'Bogger': 'with a deep, rural Irish "Bogger" accent. Lyrical but tough.',
-      'Gopnik': 'with a thick Slavic/Eastern European Gopnik accent. Short, sharp, and intense.',
-      'Scouse': 'with a heavy Liverpool Scouse accent. Very melodic but distinctly gritty.',
-      'Valley': 'with a high-pitched, exaggerated California Valley accent. Lots of inflection.',
-      'Posh': 'with an extremely refined, aristocratic "Posh" English accent. Cold, clear, and superior.',
-      'Standard': 'with deep emotion and a gritty, resonant storyteller voice.'
+      'Bogan': 'Speak with a thick, authentic Australian Bogan accent, gritty and raw.',
+      'Hillbilly': 'Speak with a deep, rural American Appalachian accent.',
+      'Homeboy': 'Speak with a sharp, rhythmic inner-city US street dialect.',
+      'Lad': 'Speak with a classic Northern UK street dialect.',
+      'Eshay': 'Speak with a high-intensity, aggressive Australian Eshay dialect.',
+      'Standard': 'Read with deep emotion and clear, weighted resonance.'
     };
 
-    const instruction = personaInstructions[persona] || personaInstructions['Standard'];
+    // If customPersona is provided (from Voice Lab), it takes precedence.
+    const activeInstruction = customPersona || personaInstructions[persona] || personaInstructions['Standard'];
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: `Read this narrative ${instruction}: ${text.substring(0, 2500)}` }] }],
+      contents: [{ 
+        parts: [{ 
+          text: `Read this narrative exactly as described (${activeInstruction}): ${text.substring(0, 3000)}` 
+        }] 
+      }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
+            prebuiltVoiceConfig: { voiceName: voiceName as any },
           },
         },
       },
     });
+
     return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
   } catch (err) {
     console.error("Speech Generation Error:", err);
-    return undefined;
+    throw err;
   }
 }
 
@@ -116,88 +205,45 @@ export async function queryPartner(
   authorMemory: string = ""
 ): Promise<Message> {
   try {
-    const profileSaved = localStorage.getItem('aca_author_profile');
-    const profile = profileSaved ? JSON.parse(profileSaved) : null;
     const contents = history.map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.content }]
     }));
-    const authorContextBlock = profile ? `
-      [AUTHOR_PROFILE]
-      Name/Identity: ${profile.name || "Anonymous Author"}
-      Dialect Preference: ${profile.dialectLevel}
-      Feedback Style: ${profile.feedbackStyle}
-      Core Narrative Goal: ${profile.customContext || "Documenting the truth."}
-      [/AUTHOR_PROFILE]
-    ` : "";
-    const contextHeader = `
-      [STUDIO_CONTEXT]
-      ${authorContextBlock}
-      CURRENT_SHEET_CONTENT: ${activeSheetContent.substring(0, 1500)}
-      [/STUDIO_CONTEXT]
-    `;
-    contents.push({ role: 'user', parts: [{ text: contextHeader + "\n\nAUTHOR_INPUT: " + message }] });
-    const systemInstruction = `
-      You are WRAPPER. ${WRAPPER_IDENTITY}
-      ADAPTATION PROTOCOL:
-      - Region: ${region} -> ${DIALECT_MAP[region] || 'Use global street English.'}
-      ${LEGAL_GUARDRAIL}
-    `;
+    
+    contents.push({ 
+      role: 'user', 
+      parts: [{ text: `[CONTEXT] ${activeSheetContent.substring(0, 1000)} [/CONTEXT]\n\nAUTHOR: ${message}` }] 
+    });
+    
+    const systemInstruction = `You are WRAPPER. ${WRAPPER_IDENTITY} ${LEGAL_GUARDRAIL}`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: contents as any,
       config: { systemInstruction, temperature: 0.9, tools: [{ googleSearch: {} }] },
     });
+    
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     const sources: GroundingSource[] = groundingChunks?.map((chunk: any) => ({
       web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
     })).filter((s: any) => s.web?.uri) || [];
+    
     return {
       role: 'assistant',
-      content: response.text || "I lost the connection for a second. Let's try that again.",
+      content: response.text || "Connection lost.",
       sources: sources.length > 0 ? sources : undefined
     };
   } catch (error) {
-    return { role: 'assistant', content: "Disconnected from the studio." };
+    return { role: 'assistant', content: "Disconnected." };
   }
 }
 
-export async function queryInsight(message: string): Promise<Message> {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: message,
-      config: { systemInstruction: "Archive Researcher", tools: [{ googleSearch: {} }] },
-    });
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-    const sources: GroundingSource[] = groundingChunks?.map((chunk: any) => ({
-      web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
-    })).filter((s: any) => s.web?.uri) || [];
-    return { role: 'assistant', content: response.text || "", sources };
-  } catch (error) { return { role: 'assistant', content: "Archives unreachable." }; }
-}
-
-// Added the missing analyzeFullManuscript function to resolve compilation errors
 export async function analyzeFullManuscript(content: string): Promise<ManuscriptReport> {
-  const systemInstruction = `
-    You are a professional literary auditor and manuscript master for system-impacted writers.
-    Analyze the full manuscript provided and generate a detailed report in JSON format.
-    Focus on:
-    1. Summary: A high-level overview of the work.
-    2. Tone Assessment: Evaluate the emotional grit, authenticity, and overall mood.
-    3. Structural Check: Audit the flow, consistency, and pacing.
-    4. Legal Safety Audit: Highlight potential PII (Personally Identifiable Information) or defamation risks.
-    5. Resource Intensity: A numeric score (1-100) representing the complexity of the editing task.
-    6. Marketability Score: A numeric score (1-100) based on narrative power.
-    7. Suggested Title: Propose a compelling title based on themes.
-  `;
-
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: content.substring(0, 32000), // Safety truncation for token limits
+      contents: content.substring(0, 32000),
       config: {
-        systemInstruction,
+        systemInstruction: "Analyze the full manuscript and return a detailed report in JSON format.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -215,19 +261,8 @@ export async function analyzeFullManuscript(content: string): Promise<Manuscript
       },
     });
 
-    const jsonStr = response.text?.trim() || "{}";
-    return JSON.parse(jsonStr);
+    return JSON.parse(response.text?.trim() || "{}");
   } catch (err) {
-    console.error("Manuscript Audit Error:", err);
-    // Provide a fallback report to prevent UI crashes
-    return {
-      summary: "Audit analysis was interrupted due to technical constraints.",
-      toneAssessment: "Inconclusive.",
-      structuralCheck: "Structural analysis incomplete.",
-      legalSafetyAudit: "CRITICAL: Manual legal safety check mandatory. Automated audit failed.",
-      resourceIntensity: 0,
-      marketabilityScore: 0,
-      suggestedTitle: "Untitled Archive"
-    };
+    return { summary: "Audit failed.", toneAssessment: "", structuralCheck: "", legalSafetyAudit: "", resourceIntensity: 0, marketabilityScore: 0, suggestedTitle: "Untitled" };
   }
 }
