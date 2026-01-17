@@ -20,6 +20,7 @@ const FONT_PAIRINGS = [
 const DEFAULT_TITLE = "In the beginning was the word...";
 const MAX_WORDS = 1000;
 const WARNING_WORDS = 900;
+const MAX_OCR_SIZE = 4 * 1024 * 1024; // 4MB
 
 function generateCourierCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -81,6 +82,10 @@ const AuthorBuilder: React.FC = () => {
     }
   }, [authorProfile]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isPartnerLoading]);
+
   const logEfficiency = (action: string, metrics: any) => {
     const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[],"efficiencyLogs":[]}');
     if (!vault.efficiencyLogs) vault.efficiencyLogs = [];
@@ -141,7 +146,7 @@ const AuthorBuilder: React.FC = () => {
     if (!file) return;
     
     // Industrial Validation: Size Check
-    if (file.size > 4 * 1024 * 1024) {
+    if (file.size > MAX_OCR_SIZE) {
       alert("FILE EXCEEDS 4MB LIMIT. PLEASE COMPRESS FOR SOVEREIGN PROCESSING.");
       return;
     }
@@ -154,7 +159,11 @@ const AuthorBuilder: React.FC = () => {
         const result = await performOCR(base64);
         setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: (c.content ? c.content + '\n\n' : '') + result.text } : c));
         logEfficiency('Paper-to-Pixel OCR', result.metrics);
-      } catch (err: any) { alert(err.message); } finally { setIsOCRLoading(false); }
+      } catch (err: any) { 
+        alert(err.message); 
+      } finally { 
+        setIsOCRLoading(false); 
+      }
     };
     reader.readAsDataURL(file);
   };

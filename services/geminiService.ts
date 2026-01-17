@@ -15,27 +15,24 @@ function getAI() {
 const MAX_IMAGE_SIZE_MB = 4;
 const MAX_AUDIO_SIZE_MB = 10;
 
-const ALLOWED_PERSONAS = [
-  'Industrial Editor', 
-  'Aussie Bush Poet', 
-  'Street Philosopher', 
-  'Formal Archivist', 
-  'Direct Transcriber'
-];
-
 const LEGAL_GUARDRAIL = `
   STRICT LEGAL SAFETY PROTOCOL: 
   You are auditing a carceral narrative. 
-  1. FLAG/REDACT real names of prison staff, police officers, or victims.
-  2. Protect the author from defamation risks. Suggest phrasing focusing on 'The Institution'.
-  3. Ensure no PII (Personally Identifiable Information) is exposed.
+  1. FLAG/REDACT real names of prison staff, police officers, or victims unless pseudonyms are confirmed.
+  2. Protect the author from defamation risks by suggesting phrasing that focuses on 'The Institution' rather than individuals.
+  3. Ensure no PII (Personally Identifiable Information) like ID numbers is included in public-facing drafts.
 `;
 
 const HUMANITARIAN_MISSION = `
   MISSION: Sovereignty of the carceral voice.
-  VOICE PROTOCOL: Preserve unique dialect and grit. DO NOT sanitize emotional truth.
-  DIALOGUE INTEGRITY: Never rewrite spoken dialogue unless for punctuation.
-  LIMIT: 1,000 words per installment.
+  VOICE PROTOCOL: Preserve the author's unique dialect, slang, and 'grit'. 
+  DO NOT sanitize the emotional truth. 
+  DO NOT rewrite dialogue unless it's a critical punctuation fix.
+  LIMIT: Enforce 1,000 words per installment.
+`;
+
+const WRAPPER_IDENTITY = `
+  W.R.A.P.P.E.R. (Writers Reliable Assistant for Polishing Passages and Editing Rough-drafts).
 `;
 
 export interface UsageMetrics {
@@ -50,24 +47,22 @@ function calculateUsage(text: string, multiplier: number = 1): UsageMetrics {
   return {
     estimatedTokens,
     humanHoursSaved: words / 250,
-    simulatedResourceLoad: (estimatedTokens / 1000) * 0.05 // Abstract weight
+    simulatedResourceLoad: (estimatedTokens / 1000) * 0.05 // Abstract load unit
   };
 }
 
-// Fixed missing queryInsight function export to resolve Narratives.tsx error.
 export async function queryInsight(message: string): Promise<Message & {metrics?: UsageMetrics}> {
   const ai = getAI();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: message,
+      contents: { parts: [{ text: message }] },
       config: {
-        systemInstruction: `You are an Archive Specialist for carceral narratives. ${HUMANITARIAN_MISSION} ${LEGAL_GUARDRAIL} Use Google Search to provide context on systemic issues or related public records if requested.`,
+        systemInstruction: `You are an Archive Specialist. ${HUMANITARIAN_MISSION} ${LEGAL_GUARDRAIL} Provide context on systemic issues using Google Search.`,
         tools: [{ googleSearch: {} }],
       },
     });
 
-    // Directly access text property as per guidelines
     const content = response.text || "";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources: GroundingSource[] = groundingChunks.map((chunk: any) => ({
@@ -76,35 +71,35 @@ export async function queryInsight(message: string): Promise<Message & {metrics?
 
     return { role: 'assistant', content, sources, metrics: calculateUsage(content, 1.5) };
   } catch (error) {
-    console.error("QUERY_INSIGHT_ERROR:", error);
+    console.error("QUERY_INSIGHT_SYSTEM_ERROR:", error);
     return { role: 'assistant', content: "Archive Link Interrupted. Checking local frequency...", metrics: calculateUsage("", 0) };
   }
 }
 
 export async function performOCR(imageBase64: string): Promise<{text: string, metrics: UsageMetrics}> {
-  if (imageBase64.length > MAX_IMAGE_SIZE_MB * 1.4 * 1024 * 1024) {
-    throw new Error(`File exceeds ${MAX_IMAGE_SIZE_MB}MB limit.`);
+  // Pre-flight check for base64 size overhead (~1.37x the original file)
+  const estimatedSize = (imageBase64.length * 0.75) / (1024 * 1024);
+  if (estimatedSize > MAX_IMAGE_SIZE_MB) {
+    throw new Error(`Visual asset exceeds ${MAX_IMAGE_SIZE_MB}MB safety limit.`);
   }
 
   const ai = getAI();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      // Followed guidelines for multiple parts in contents
       contents: { 
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: imageBase64 } }, 
-          { text: "Perform high-precision OCR. Transcribe exactly." }
+          { text: "Perform high-precision OCR on this carceral document. Transcribe exactly." }
         ] 
       },
-      config: { systemInstruction: "Institutional OCR Mode." }
+      config: { systemInstruction: "Institutional OCR Mode. Absolute fidelity to source." }
     });
-    // Use text property instead of text()
     const text = response.text || "";
     return { text, metrics: calculateUsage(text, 2.5) };
   } catch (err) {
-    console.error("OCR_TRANSCRIPTION_ERROR:", err);
-    throw new Error("OCR Link Failed: Check image clarity.");
+    console.error("OCR_TRANSMISSION_ERROR:", err);
+    throw new Error("OCR Link Failed: Ensure image is clear and under limit.");
   }
 }
 
@@ -112,20 +107,19 @@ export async function smartSoap(text: string, level: 'rinse' | 'scrub' | 'saniti
   const ai = getAI();
   let system = HUMANITARIAN_MISSION;
   if (level === 'rinse') system += "\nMODE: Light Grammar ONLY.";
-  else if (level === 'scrub') system += "\nMODE: Literary Polish.";
+  else if (level === 'scrub') system += "\nMODE: Literary Polish. Preserve unique voice.";
   else system += `\nMODE: SANITIZE. ${LEGAL_GUARDRAIL}`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: text,
+      contents: { parts: [{ text }] },
       config: { systemInstruction: system },
     });
-    // Use text property directly
     const resultText = response.text || text;
     return { text: resultText, metrics: calculateUsage(resultText, 1.2) };
   } catch (err) {
-    console.error("SMART_SOAP_ERROR:", err);
+    console.error("SMART_SOAP_SYSTEM_ERROR:", err);
     return { text, metrics: calculateUsage(text, 0) };
   }
 }
@@ -141,14 +135,15 @@ export async function queryPartner(
   try {
     const contents = history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] }));
     contents.push({ role: 'user', parts: [{ text: `[CONTEXT] ${activeSheetContent.substring(0, 1500)} [/CONTEXT] ${message}` }] });
-    const systemInstruction = `You are WRAPPER. Regional Context: ${region}. Style: ${style}. ${HUMANITARIAN_MISSION} ${LEGAL_GUARDRAIL}`;
+    
+    const systemInstruction = `You are WRAPPER. Archive Context: ${region}. Style: ${style}. ${WRAPPER_IDENTITY} ${HUMANITARIAN_MISSION} ${LEGAL_GUARDRAIL}`;
     
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: contents as any,
       config: { systemInstruction, tools: [{ googleSearch: {} }] },
     });
-    // Property access for response text
+
     const content = response.text || "";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources: GroundingSource[] = groundingChunks.map((chunk: any) => ({
@@ -157,28 +152,8 @@ export async function queryPartner(
 
     return { role: 'assistant', content, sources, metrics: calculateUsage(content, 1.5) };
   } catch (error) {
-    console.error("PARTNER_QUERY_ERROR:", error);
-    return { role: 'assistant', content: "Archive Link Interrupted. Checking local frequency...", metrics: calculateUsage("", 0) };
-  }
-}
-
-export async function jiveContent(text: string, persona: string): Promise<{text: string, metrics: UsageMetrics}> {
-  if (!ALLOWED_PERSONAS.includes(persona)) {
-    throw new Error("Invalid persona requested.");
-  }
-  const ai = getAI();
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Transform lexical structure to match persona: ${persona}. Source: ${text}`,
-      config: { systemInstruction: "Do not offer professional advice. Maintain original meaning." }
-    });
-    // Fixed response text access
-    const resultText = response.text || text;
-    return { text: resultText, metrics: calculateUsage(resultText, 1.3) };
-  } catch (err) {
-    console.error("JIVE_REWRITE_ERROR:", err);
-    return { text, metrics: calculateUsage(text, 0) };
+    console.error("PARTNER_QUERY_SYSTEM_ERROR:", error);
+    return { role: 'assistant', content: "Partner Link Interrupted. Checking Sovereign tunnel...", metrics: calculateUsage("", 0) };
   }
 }
 
@@ -187,7 +162,7 @@ export async function analyzeFullManuscript(content: string, goal: MasteringGoal
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: content.substring(0, 32000),
+      contents: { parts: [{ text: content.substring(0, 32000) }] },
       config: {
         systemInstruction: `Analyze manuscript for ${goal.toUpperCase()} mastering. ${LEGAL_GUARDRAIL} ${HUMANITARIAN_MISSION} Return JSON.`,
         responseMimeType: "application/json",
@@ -207,12 +182,11 @@ export async function analyzeFullManuscript(content: string, goal: MasteringGoal
         },
       },
     });
-    // Used property access and trim for the JSON string as recommended
     const resultText = response.text?.trim() || "{}";
     const report = JSON.parse(resultText);
     return { ...report, metrics: calculateUsage(content, 5) };
   } catch (err) {
-    console.error("MANUSCRIPT_AUDIT_ERROR:", err);
+    console.error("MANUSCRIPT_AUDIT_SYSTEM_ERROR:", err);
     throw new Error("Audit failed. System overloaded.");
   }
 }

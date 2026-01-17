@@ -21,7 +21,7 @@ const SovereignVault: React.FC = () => {
   const efficiencyLogs = vault.efficiencyLogs || [];
   const totalTokens = efficiencyLogs.reduce((acc, log) => acc + log.metrics.estimatedTokens, 0);
   const totalHoursSaved = efficiencyLogs.reduce((acc, log) => acc + log.metrics.humanHoursSaved, 0);
-  const totalResourceLoad = efficiencyLogs.reduce((acc, log) => acc + log.metrics.wholesaleCostEstimate, 0);
+  const totalResourceLoad = efficiencyLogs.reduce((acc, log) => acc + (log.metrics.simulatedResourceLoad || log.metrics.wholesaleCostEstimate || 0), 0);
 
   // Simulation Logic
   const RESOURCE_CAPACITY = 100.00;
@@ -251,7 +251,7 @@ const SovereignVault: React.FC = () => {
                     <div className="bg-[#0d0d0d] border border-white/5 p-12 rounded-sm group hover:border-orange-500/20 transition-all">
                        <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-4">Aggregate Token Flow</p>
                        <h4 className="text-5xl font-serif italic text-white mb-2">{(totalTokens / 1000).toFixed(2)}k</h4>
-                       <p className="text-[9px] text-gray-600 italic">"Simulated aggregate token volume weight."</p>
+                       <p className="text-[9px] text-gray-600 italic">"Aggregate token volume weight."</p>
                     </div>
                     <div className="bg-[#0d0d0d] border border-white/5 p-12 rounded-sm group hover:border-cyan-500/20 transition-all">
                        <p className="text-[8px] font-black text-cyan-500 uppercase tracking-widest mb-4">Simulated Load Units</p>
