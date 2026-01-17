@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { queryPartner, smartSoap, jiveContent, generateSpeech, analyzeVoiceAndDialect, performOCR } from '../services/geminiService';
-import { Message, Chapter, MediaAsset, VaultStorage, VaultSheet, VaultAI } from '../types';
+import { Message, Chapter, MediaAsset, VaultStorage, VaultSheet } from '../types';
 
 // Declare mammoth for Word import
 declare const mammoth: any;
@@ -26,6 +26,8 @@ const VOICES = [
 ];
 
 const DEFAULT_TITLE = "In the beginning was the word...";
+const MAX_WORDS = 1000;
+const WARNING_WORDS = 900;
 
 const FONT_PAIRINGS = [
   { name: 'Classic', title: 'font-serif font-black italic', body: 'font-serif text-xl' },
@@ -151,10 +153,49 @@ const AuthorBuilder: React.FC = () => {
   };
 
   const activeChapter = findChapterById(chapters, activeChapterId) || chapters[0];
+  const wordCount = activeChapter.content ? activeChapter.content.trim().split(/\s+/).filter(w => w).length : 0;
+  const isLimitReached = wordCount >= MAX_WORDS;
+  const isWarningReached = wordCount >= WARNING_WORDS;
 
   useEffect(() => {
     localStorage.setItem('wrap_sheets_v4', JSON.stringify(chapters));
+    
+    // Strict Auto-Vaulting Protocol: Triggers when 1000 words is hit
+    if (isLimitReached) {
+      handleEmergencyAutoVault();
+    }
   }, [chapters]);
+
+  const handleEmergencyAutoVault = () => {
+    const vault: VaultStorage = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
+    const newKey = generateCourierCode();
+    const newSheet: VaultSheet = {
+      id: `auto-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      dispatchKey: newKey,
+      status: 'archived',
+      data: { ...activeChapter }
+    };
+    vault.sheets.unshift(newSheet);
+    localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
+    
+    // Clear notification and swap to a new sheet segment
+    alert(`REGISTRY SATURATION: The installment limit has been reached. Sheet "${activeChapter.title === DEFAULT_TITLE ? 'Untitled Installation' : activeChapter.title}" has been synchronized with THE BIG HOUSE for safe-keeping. A fresh segment is now active.`);
+    
+    const nextId = Date.now().toString();
+    const nextTitle = activeChapter.title !== DEFAULT_TITLE ? `${activeChapter.title} (Part II)` : DEFAULT_TITLE;
+    
+    // Replace the current chapter in the list with a fresh one to prevent "ghost typing" past limit
+    const updateList = (list: Chapter[]): Chapter[] => {
+      return list.map(c => {
+        if (c.id === activeChapterId) return { id: nextId, title: nextTitle, content: '', order: c.order, media: [], subChapters: [] };
+        return c;
+      });
+    };
+    
+    setChapters(prev => updateList(prev));
+    setActiveChapterId(nextId);
+  };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -181,6 +222,7 @@ const AuthorBuilder: React.FC = () => {
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.onresult = (event: any) => {
+        if (isLimitReached) return; // Block dictation if limit is reached
         let transcript = "";
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) transcript += event.results[i][0].transcript;
@@ -210,7 +252,7 @@ const AuthorBuilder: React.FC = () => {
       };
       partnerRecognitionRef.current.onend = () => { if (isPartnerListening) try { partnerRecognitionRef.current.start(); } catch(e) {} };
     }
-  }, [activeChapterId, isListening, isPartnerListening]);
+  }, [activeChapterId, isListening, isPartnerListening, isLimitReached]);
 
   useEffect(() => {
     if (messages.length > 0) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -320,7 +362,7 @@ const AuthorBuilder: React.FC = () => {
   };
 
   const handleExportToVault = () => {
-    const vault: VaultStorage = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[]}');
+    const vault: VaultStorage = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
     const newKey = generateCourierCode();
     const newSheet: VaultSheet = {
       id: Date.now().toString(),
@@ -329,7 +371,7 @@ const AuthorBuilder: React.FC = () => {
       status: 'archived',
       data: { ...activeChapter }
     };
-    vault.sheets.push(newSheet);
+    vault.sheets.unshift(newSheet);
     localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
     alert(`Material safely logged in THE BIG HOUSE.\nCourier Code generated: ${newKey}`);
     setShowActionMenu(false);
@@ -557,24 +599,55 @@ const AuthorBuilder: React.FC = () => {
         <div className="flex-grow overflow-y-auto pt-32 pb-4 custom-scrollbar">
           {chapters.map(c => <SidebarItem key={c.id} chapter={c} />)}
         </div>
-        <div className="px-6 py-4 border-t border-white/5 bg-black/40 relative group/tooltip">
-            <button onClick={() => {
-              const newId = Date.now().toString();
-              setChapters([...chapters, { id: newId, title: DEFAULT_TITLE, content: '', order: 0, media: [], subChapters: [] }]);
-              setActiveChapterId(newId);
-            }} className="w-full p-4 border border-dashed border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-700 hover:text-orange-500 transition-all rounded-sm">
-              + {uiStrings.newSheet}
-            </button>
-            {showTooltips && (
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
-                <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">New Entry</p>
-                <p className="text-[10px] text-gray-500 italic leading-tight">Create a fresh digital sheet for a new narrative.</p>
-              </div>
-            )}
+        
+        <div className="px-6 py-4 space-y-3">
+          <Link 
+            to="/wrap-it-up" 
+            className="w-full p-4 bg-orange-500/10 border border-orange-500/30 text-[9px] font-black uppercase tracking-widest text-orange-500 hover:bg-orange-500 hover:text-white transition-all rounded-sm flex items-center justify-center gap-2 group/master"
+          >
+            <svg className="w-3 h-3 group-hover/master:animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Mastering Suite
+          </Link>
+          <div className="bg-black/40 border-t border-white/5 relative group/tooltip">
+              <button 
+                disabled={isLimitReached}
+                onClick={() => {
+                  const newId = Date.now().toString();
+                  setChapters([...chapters, { id: newId, title: DEFAULT_TITLE, content: '', order: 0, media: [], subChapters: [] }]);
+                  setActiveChapterId(newId);
+                }} 
+                className="w-full p-4 border border-dashed border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-700 hover:text-orange-500 transition-all rounded-sm disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                + {uiStrings.newSheet}
+              </button>
+              {showTooltips && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
+                  <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">New Entry</p>
+                  <p className="text-[10px] text-gray-500 italic leading-tight">Create a fresh digital sheet for a new narrative segment.</p>
+                </div>
+              )}
+          </div>
         </div>
       </aside>
 
       <main className="flex-grow flex flex-col relative bg-[#020202]">
+        {/* Registry Saturation Warning Overlay */}
+        {isWarningReached && (
+          <div className="absolute inset-x-0 top-24 z-[100] flex justify-center pointer-events-none px-12">
+            <div className="bg-red-500/90 text-white px-10 py-6 rounded-sm shadow-[0_0_50px_rgba(239,68,68,0.4)] animate-pulse flex flex-col items-center gap-2 border border-white/20 backdrop-blur-xl">
+               <div className="flex items-center gap-4">
+                  <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Registry Saturation Alert</span>
+               </div>
+               <p className="text-[9px] font-bold uppercase tracking-widest opacity-90 text-center">
+                  {activeChapter.title === DEFAULT_TITLE 
+                    ? "Action Required: Provide a Unique Heading to seal the installment." 
+                    : "Installment Limit Approaching: Wrap up final sentences for auto-vaulting."}
+               </p>
+            </div>
+          </div>
+        )}
+
         <div className="absolute top-4 right-12 z-[40]">
            <div className="flex items-center gap-3 bg-black/40 border border-white/5 px-4 py-2 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,1)] animate-pulse"></div>
@@ -589,7 +662,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-0 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-40 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Typography</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Click and change font types for your sheet.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Change typography to match your narrative's tone.</p>
                   </div>
                 )}
               </div>
@@ -601,13 +674,29 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-0 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Voice Cloning</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Create your virtual voice. Access it as "My Voice" in the SPEAK dropdown.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Calibrate WRAP to your unique vocal patterns.</p>
                   </div>
                 )}
               </div>
            </div>
 
            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 bg-black/40 border border-white/10 px-6 py-2 rounded-sm group relative">
+                 <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 ${isLimitReached ? 'bg-red-500' : isWarningReached ? 'bg-orange-500' : 'bg-gray-700'}`} 
+                      style={{ width: `${(wordCount / MAX_WORDS) * 100}%` }}
+                    ></div>
+                 </div>
+                 <span className={`text-[9px] font-black uppercase tracking-widest ${isWarningReached ? 'text-orange-500 animate-pulse' : 'text-gray-600'}`}>
+                    {wordCount} / {MAX_WORDS}
+                 </span>
+                 <div className="absolute top-full left-0 mt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 w-64 bg-black border border-white/10 p-4 text-[9px] text-gray-400 italic leading-relaxed shadow-2xl rounded-sm">
+                    <span className="text-orange-500 font-black block mb-2 tracking-widest">Sovereign Installment Limit</span>
+                    "For maximum Substack readability and book formatting consistency, keep installments under 1,000 words. Emergency vaulting occurs at the saturation point."
+                 </div>
+              </div>
+
               {(isSoaping || isDogging || isPartnerLoading || isSpeakingLoading || isOCRLoading) && (
                 <span className="text-[8px] font-black text-orange-500 animate-pulse uppercase tracking-widest">
                   {isSpeakingLoading ? 'Analyzing Voice Patterns...' : isOCRLoading ? 'Scanning Ink...' : 'Processing...'}
@@ -621,7 +710,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Cleanup Engine</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Rinse (punctuation), Scrub (flow), or Sanitize (legal safety).</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Automated polishing for carceral narratives.</p>
                   </div>
                 )}
                 {showSoapMenu && (
@@ -640,7 +729,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Doggerel Remix</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Turning prose into rhythmic, street-flavored poetry.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Rhythmic street-flavored poetic conversion.</p>
                   </div>
                 )}
               </div>
@@ -652,7 +741,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Audio Playback</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Listen to your sheet using specialized voice personas.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Hear your truth reflected back in specific dialects.</p>
                   </div>
                 )}
                 {showSpeakMenu && (
@@ -697,7 +786,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Hands-Free Writing</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Stream your voice directly onto the digital sheet.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Dictate directly into the digital registry.</p>
                   </div>
                 )}
               </div>
@@ -707,7 +796,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Vault Utility</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Import, export, or archive this sheet for safety.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Sovereign tools for import, export, and archival.</p>
                   </div>
                 )}
                 {showActionMenu && (
@@ -768,6 +857,7 @@ const AuthorBuilder: React.FC = () => {
               <textarea 
                 value={activeChapter.content}
                 onChange={(e) => {
+                  if (isLimitReached) return;
                   const val = e.target.value;
                   const updateList = (list: Chapter[]): Chapter[] => list.map(c => ({
                     ...c,
@@ -777,7 +867,7 @@ const AuthorBuilder: React.FC = () => {
                   }));
                   setChapters(prev => updateList(prev));
                 }}
-                className={`w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-400 text-xl font-serif leading-[2.2] placeholder:text-gray-900 transition-all ${currentFont.body}`}
+                className={`w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-400 text-xl font-serif leading-[2.2] placeholder:text-gray-900 transition-all ${currentFont.body} ${isLimitReached ? 'opacity-50 pointer-events-none' : ''}`}
                 placeholder="The narrative begins here..."
               />
            </div>
@@ -836,7 +926,7 @@ const AuthorBuilder: React.FC = () => {
                 {showTooltips && (
                   <div className="absolute bottom-full left-0 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Tone Selection</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Aim your narrative at a specific audience or genre.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Target your narrative for a specific audience.</p>
                   </div>
                 )}
               </div>
@@ -849,8 +939,8 @@ const AuthorBuilder: React.FC = () => {
                 </div>
                 {showTooltips && (
                   <div className="absolute bottom-full right-0 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
-                    <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Local Context</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Differentiate local slang and regional terms.</p>
+                    <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Regional Archives</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Sync slang and local systemic nuances.</p>
                   </div>
                 )}
               </div>
@@ -884,7 +974,7 @@ const AuthorBuilder: React.FC = () => {
                {showTooltips && (
                   <div className="absolute bottom-full right-0 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                     <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Partner Dialogue</p>
-                    <p className="text-[10px] text-gray-500 italic leading-tight">Chat or use the mic to brainstorm with WRAP.</p>
+                    <p className="text-[10px] text-gray-500 italic leading-tight">Query the archive or brainstorm your next segment.</p>
                   </div>
                )}
              </div>
@@ -894,7 +984,7 @@ const AuthorBuilder: React.FC = () => {
              {showTooltips && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-[100] w-48 text-center bg-black border border-white/10 p-3 shadow-2xl rounded-sm">
                   <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-1 leading-none">Transmit</p>
-                  <p className="text-[10px] text-gray-500 italic leading-tight">Execute your input and consult the archive.</p>
+                  <p className="text-[10px] text-gray-500 italic leading-tight">Submit your entry to the WRAP system.</p>
                 </div>
              )}
            </div>

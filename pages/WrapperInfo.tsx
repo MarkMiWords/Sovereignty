@@ -6,7 +6,7 @@ const WrapperInfo: React.FC = () => {
   const [profile, setProfile] = useState(() => {
     const saved = localStorage.getItem('aca_author_profile');
     return saved ? JSON.parse(saved) : {
-      name: '',
+      name: 'Architect',
       dialectLevel: 'Balanced',
       feedbackStyle: 'Direct',
       motivation: 'Personal Legacy',
@@ -16,11 +16,28 @@ const WrapperInfo: React.FC = () => {
   });
 
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
   const saveProfile = () => {
     localStorage.setItem('aca_author_profile', JSON.stringify(profile));
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 3000);
+  };
+
+  const copySignature = () => {
+    const sig = `
+--------------------------------------------------
+${profile.name.toUpperCase()} // AUTHOR DEPT.
+A CAPTIVE AUDIENCE | SOVEREIGN ARCHIVE
+--------------------------------------------------
+REF: PROTOCOL BETA 4.0
+DISPATCH_KEY: AT-SYNC-ACTIVE
+URL: ACAPTIVEAUDIENCE.COM
+--------------------------------------------------
+    `.trim();
+    navigator.clipboard.writeText(sig);
+    setCopyStatus('copied');
+    setTimeout(() => setCopyStatus('idle'), 2000);
   };
 
   return (
@@ -46,11 +63,12 @@ const WrapperInfo: React.FC = () => {
 
       <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 border-b border-white/5">
         <Link to="/author-builder" className="text-accent text-[11px] font-bold uppercase tracking-[0.4em] mb-12 block hover:underline transition-all">← Return to Studio</Link>
-        <h1 className="text-7xl md:text-9xl font-serif font-bold italic text-white mb-6 tracking-tighter leading-none">WRAP.</h1>
-        <p className="text-2xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"The digital bridge for system-impacted truth. Your Write Right AI Partner."</p>
+        <h1 className="text-7xl md:text-9xl font-serif font-black italic text-white mb-6 tracking-tighter leading-none">WRAP.</h1>
+        <p className="text-2xl md:text-3xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"The digital bridge for system-impacted truth. Your Write Right AI Partner."</p>
       </section>
 
       <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 space-y-32">
+        {/* Intelligence Training */}
         <div className="bg-[#0a0a0a] border border-white/10 p-12 lg:p-24 rounded-sm shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative overflow-hidden group/train">
           <div className="absolute -top-10 -right-10 p-8 opacity-[0.03] text-[15rem] font-serif italic select-none group-hover/train:opacity-[0.07] transition-opacity duration-1000">WRAP</div>
           
@@ -113,6 +131,38 @@ const WrapperInfo: React.FC = () => {
                 <div className="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Email Signature Tool */}
+        <div className="bg-[#050505] border border-white/5 p-12 lg:p-20 relative overflow-hidden">
+          <div className="relative z-10 space-y-8">
+            <div className="space-y-2">
+              <span className="text-orange-500 text-[9px] font-black uppercase tracking-[0.5em]">Branding Assets</span>
+              <h2 className="text-3xl font-serif italic">Dispatch <span className="text-orange-500">Signatures.</span></h2>
+              <p className="text-gray-500 text-sm italic font-light max-w-xl">Use this monospace signature for your external emails to editors, care organizations, or legal teams.</p>
+            </div>
+            
+            <div className="bg-black border border-white/10 p-8 rounded-sm font-mono text-[10px] text-gray-400 leading-relaxed shadow-inner group relative">
+               <div className="absolute top-4 right-4 text-[8px] font-bold text-gray-800 uppercase tracking-widest italic group-hover:text-orange-500 transition-colors">Digital Stationery</div>
+               <pre className="whitespace-pre-wrap">
+{`--------------------------------------------------
+${profile.name.toUpperCase()} // AUTHOR DEPT.
+A CAPTIVE AUDIENCE | SOVEREIGN ARCHIVE
+--------------------------------------------------
+REF: PROTOCOL BETA 4.0
+DISPATCH_KEY: AT-SYNC-ACTIVE
+URL: ACAPTIVEAUDIENCE.COM
+--------------------------------------------------`}
+               </pre>
+            </div>
+
+            <button 
+              onClick={copySignature}
+              className={`w-full py-5 text-[10px] font-black uppercase tracking-[0.4em] transition-all border ${copyStatus === 'copied' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-white/5 border-white/10 text-gray-500 hover:text-white hover:border-white/30'}`}
+            >
+              {copyStatus === 'copied' ? 'Signature Synchronized (Copied)' : 'Copy Dispatch Signature'}
+            </button>
           </div>
         </div>
 

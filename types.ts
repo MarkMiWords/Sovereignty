@@ -91,8 +91,16 @@ export interface VaultAI {
   history: Message[];
 }
 
+export interface VaultAudit {
+  id: string;
+  timestamp: string;
+  goal: MasteringGoal;
+  report: ManuscriptReport;
+}
+
 export interface VaultStorage {
   sheets: VaultSheet[];
   books: Book[];
   ai: VaultAI[];
+  audits: VaultAudit[];
 }

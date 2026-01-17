@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { VaultStorage, VaultSheet, VaultAI, Book } from '../types';
+import { VaultStorage, VaultSheet, VaultAI, Book, VaultAudit } from '../types';
 
 const SovereignVault: React.FC = () => {
   const navigate = useNavigate();
-  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'ai' | 'inbound'>('sheets');
+  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'ai' | 'inbound' | 'stationery' | 'audits'>('sheets');
   const [courierInput, setCourierInput] = useState('');
   const [vault, setVault] = useState<VaultStorage>(() => {
     const saved = localStorage.getItem('aca_sovereign_vault');
-    return saved ? JSON.parse(saved) : { sheets: [], books: [], ai: [] };
+    return saved ? JSON.parse(saved) : { sheets: [], books: [], ai: [], audits: [] };
   });
 
   const [showTooltips, setShowTooltips] = useState(() => {
@@ -45,14 +45,29 @@ const SovereignVault: React.FC = () => {
     }
   };
 
-  const deleteFromVault = (folder: 'sheets' | 'ai' | 'books', id: string) => {
+  const deleteFromVault = (folder: 'sheets' | 'ai' | 'books' | 'audits', id: string) => {
     if (!window.confirm("Are you sure you want to permanently erase this archive from the Big House?")) return;
     const newVault = { ...vault };
     if (folder === 'sheets') newVault.sheets = newVault.sheets.filter(s => s.id !== id);
     if (folder === 'ai') newVault.ai = newVault.ai.filter(a => a.id !== id);
+    if (folder === 'audits') newVault.audits = newVault.audits.filter(a => a.id !== id);
     setVault(newVault);
     localStorage.setItem('aca_sovereign_vault', JSON.stringify(newVault));
   };
+
+  const StationeryItem = ({ title, type, desc, icon }: { title: string, type: string, desc: string, icon: string }) => (
+    <div className="bg-[#0d0d0d] border border-white/5 p-10 rounded-sm relative group hover:border-orange-500/20 transition-all">
+       <div className="text-4xl mb-6">{icon}</div>
+       <div className="space-y-4">
+          <div>
+            <p className="text-orange-500 text-[8px] font-black uppercase tracking-widest mb-1">{type}</p>
+            <h3 className="text-2xl font-serif italic text-white group-hover:text-orange-500 transition-colors">{title}</h3>
+          </div>
+          <p className="text-sm text-gray-500 font-light italic leading-relaxed">{desc}</p>
+          <button className="w-full py-4 border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-gray-600 hover:text-white hover:border-white/30 transition-all">Preview Source Asset</button>
+       </div>
+    </div>
+  );
 
   return (
     <div className="bg-[#050505] min-h-screen text-white pb-32 pt-24 font-sans selection:bg-orange-500/30 relative">
@@ -94,6 +109,17 @@ const SovereignVault: React.FC = () => {
           </button>
 
           <button 
+            onClick={() => setActiveFolder('audits')}
+            className={`w-full flex items-center justify-between p-8 transition-all border-l-4 ${activeFolder === 'audits' ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-[inset_15px_0_30px_-15px_rgba(230,126,34,0.2)]' : 'bg-black border-white/5 border-l-transparent text-gray-700 hover:text-gray-400'}`}
+          >
+            <div className="text-left">
+              <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Archive Block C</p>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em]">Sovereign Audits</span>
+            </div>
+            <span className="text-[9px] font-bold px-3 py-1 bg-white/5 rounded-sm">{vault.audits?.length || 0}</span>
+          </button>
+
+          <button 
             onClick={() => setActiveFolder('ai')}
             className={`w-full flex items-center justify-between p-8 transition-all border-l-4 ${activeFolder === 'ai' ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-[inset_15px_0_30px_-15px_rgba(230,126,34,0.2)]' : 'bg-black border-white/5 border-l-transparent text-gray-700 hover:text-gray-400'}`}
           >
@@ -113,6 +139,17 @@ const SovereignVault: React.FC = () => {
               <span className="text-[11px] font-black uppercase tracking-[0.2em]">Inbound Desk</span>
             </div>
             <span className="text-[11px] font-serif italic text-cyan-500/60">About Time</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveFolder('stationery')}
+            className={`w-full flex items-center justify-between p-8 transition-all border-l-4 ${activeFolder === 'stationery' ? 'bg-white/5 border-white text-white shadow-[inset_15px_0_30px_-15px_rgba(255,255,255,0.1)]' : 'bg-black border-white/5 border-l-transparent text-gray-700 hover:text-gray-400'}`}
+          >
+            <div className="text-left">
+              <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Visual Identity</p>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em]">Stationery</span>
+            </div>
+            <span className="text-[9px] font-serif italic opacity-30">Branding</span>
           </button>
           
           <div className="pt-12 mt-12 border-t border-white/5 space-y-6">
@@ -194,6 +231,43 @@ const SovereignVault: React.FC = () => {
             </div>
           )}
 
+          {activeFolder === 'audits' && (
+            <div className="grid gap-6 animate-fade-in">
+              {(!vault.audits || vault.audits.length === 0) && <div className="p-32 text-center border border-dashed border-white/5 italic text-gray-800 font-serif text-3xl opacity-20">"No Sovereign Audits logged in Block C."</div>}
+              {vault.audits?.map((a) => (
+                <div key={a.id} className="p-12 bg-[#0d0d0d] border border-white/5 rounded-sm flex items-center justify-between group shadow-xl relative overflow-hidden">
+                   <div className="absolute top-0 left-0 w-1 h-full bg-orange-500/40 group-hover:bg-orange-500 transition-colors"></div>
+                   <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest">Report Ref: {a.id}</p>
+                      <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Audit Date: {new Date(a.timestamp).toLocaleDateString()}</p>
+                      <p className="text-[8px] font-black text-cyan-500 uppercase tracking-widest border border-cyan-500/20 px-2">Path: {a.goal}</p>
+                    </div>
+                    <h3 className="text-3xl font-serif italic text-white">{a.report.suggestedTitle}</h3>
+                    <div className="flex gap-6">
+                       <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Marketability: <span className="text-orange-500">{a.report.marketabilityScore}%</span></div>
+                       <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Intensity: <span className="text-cyan-500">{a.report.resourceIntensity}/100</span></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <button 
+                      className="px-10 py-5 border border-white/10 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all rounded-sm bg-black"
+                      onClick={() => alert(`Sovereign Report Detail:\n\nSummary: ${a.report.summary}\n\nLegal: ${a.report.legalSafetyAudit}`)}
+                    >
+                      Examine Report
+                    </button>
+                    <button 
+                      onClick={() => deleteFromVault('audits', a.id)}
+                      className="text-gray-800 hover:text-red-500 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {activeFolder === 'ai' && (
             <div className="grid gap-6 animate-fade-in">
               {vault.ai.length === 0 && <div className="p-32 text-center border border-dashed border-white/5 italic text-gray-800 font-serif text-3xl opacity-20">"No intercepted dialogue logged."</div>}
@@ -259,6 +333,35 @@ const SovereignVault: React.FC = () => {
                     </p>
                   </div>
                </div>
+            </div>
+          )}
+
+          {activeFolder === 'stationery' && (
+            <div className="grid md:grid-cols-2 gap-8 animate-fade-in">
+              <StationeryItem 
+                title="Email Header" 
+                type="Asset: PNG-24" 
+                desc="The official 1200x400 header for external dispatches. Features the Living Amber glow and Registry Scan texture." 
+                icon="🖼️"
+              />
+              <StationeryItem 
+                title="Courier Code Block" 
+                type="Layout Component" 
+                desc="The industrial footer for physical printouts. Designed to communicate securely with the About Time Inbound Desk." 
+                icon="📟"
+              />
+              <StationeryItem 
+                title="Sovereign Seal" 
+                type="Vector Overlay" 
+                desc="The irregular ink-stamp seal for high-security carceral documentation." 
+                icon="⚖️"
+              />
+              <StationeryItem 
+                title="Registry Table" 
+                type="HTML Template" 
+                desc="Refined formatting for Substack emails, focusing on data-integrity and high-end industrial aesthetics." 
+                icon="📋"
+              />
             </div>
           )}
         </main>
