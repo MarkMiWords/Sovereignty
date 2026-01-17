@@ -131,17 +131,17 @@ const CreatorHub: React.FC = () => {
                  </div>
                  <div className="space-y-8">
                     <div className="space-y-2">
-                      <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Cover Art</label>
+                      <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Cover Art (Vector Supported)</label>
                       <div onClick={() => coverInputRef.current?.click()} className="w-full aspect-[2/3] bg-black border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer group hover:border-accent/40 transition-all relative overflow-hidden rounded-sm">
                         {newBook.coverUrl ? (
                           <img src={newBook.coverUrl} className="w-full h-full object-cover" alt="Preview" />
                         ) : (
                           <div className="text-center">
                             <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest group-hover:text-accent transition-colors block mb-2">Select Visual Asset</span>
-                            <span className="text-[8px] text-gray-800 uppercase tracking-widest italic">2:3 Aspect Ratio Recommended</span>
+                            <span className="text-[8px] text-gray-800 uppercase tracking-widest italic">Supports JPG, PNG, or SVG</span>
                           </div>
                         )}
-                        <input type="file" ref={coverInputRef} onChange={handleCoverUpload} className="hidden" accept="image/*" />
+                        <input type="file" ref={coverInputRef} onChange={handleCoverUpload} className="hidden" accept="image/png,image/jpeg,image/svg+xml" />
                       </div>
                     </div>
                     <button onClick={saveNewBook} disabled={!newBook.title || !newBook.coverUrl} className="w-full bg-orange-500 text-white py-6 text-[10px] font-bold uppercase tracking-[0.4em] shadow-xl disabled:opacity-20 transition-all hover:bg-orange-600 shadow-orange-500/10">Register Edition</button>

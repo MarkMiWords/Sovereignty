@@ -7,13 +7,13 @@ const WhyPublish: React.FC = () => {
     <div className="bg-[#050505] min-h-screen text-white">
       {/* Hero Section */}
       <section className="relative h-[80vh] flex items-center justify-center px-6 overflow-hidden border-b border-white/5">
-        <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1512485694743-9c9538b4e6e0?q=80&w=2000&auto=format&fit=crop" 
-            className="w-full h-full object-cover grayscale" 
+            className="w-full h-full object-cover grayscale-[20%] opacity-40" 
             alt="Old typewriter and keys" 
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/60 to-transparent"></div>
         </div>
         
         <div className="relative z-10 text-center max-w-5xl">
@@ -131,7 +131,7 @@ const WhyPublish: React.FC = () => {
                 Instead of a high-profit markup, we use a flat fee to cover the high-volume token usage for Gemini Pro and 10GB of secure cloud storage. It's a community rate for industrial-grade truth-telling.
               </p>
               <Link 
-                to="/creator-hub" 
+                to="/author-builder" 
                 className="bg-black text-white text-center py-5 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-white hover:text-black transition-all"
               >
                 Start Free Chapter

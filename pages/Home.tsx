@@ -7,16 +7,16 @@ const Home: React.FC = () => {
     <div className="bg-[#050505]">
       {/* Hero Section */}
       <section className="relative h-[90vh] flex items-center justify-center overflow-hidden px-6 text-center">
-        {/* Background Layer */}
+        {/* Background Layer - Recalibrated for visibility */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-black/60 z-10"></div>
+          <div className="absolute inset-0 bg-black/40 z-10"></div>
           <img 
             src="https://images.unsplash.com/photo-1589216534379-39c148804611?q=80&w=2500&auto=format&fit=crop" 
-            className="w-full h-full object-cover grayscale opacity-70 scale-105 animate-subtle-drift" 
+            className="w-full h-full object-cover grayscale-[40%] opacity-50 scale-105 animate-subtle-drift" 
             alt="Scales of Justice" 
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-transparent to-[#050505] z-10"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-orange-500/10 rounded-full blur-[200px] z-10"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-orange-500/5 rounded-full blur-[200px] z-10"></div>
         </div>
 
         <div className="relative z-20 max-w-6xl px-4">
@@ -27,7 +27,7 @@ const Home: React.FC = () => {
           
           <h1 className="text-6xl md:text-[10rem] font-serif font-black mb-8 leading-[0.85] tracking-tighter text-white animate-slide-up glow-white">
             RECLAIM THE <br />
-            <span className="text-orange-500 italic font-serif glow-orange animate-living-amber">NARRATIVE.</span>
+            <span className="text-orange-500 italic font-serif glow-orange animate-living-amber uppercase">Narrative.</span>
           </h1>
           
           <p className="text-xl md:text-3xl text-gray-400 font-light max-w-3xl mx-auto leading-relaxed italic mb-16 animate-fade-in delay-300">

@@ -42,10 +42,10 @@ export interface Artwork {
 export interface Book {
   id: string;
   title: string;
+  subtitle?: string;
   author: string;
   description: string;
   coverUrl: string;
-  backCoverUrl?: string;
   slug: string;
   releaseYear: string;
 }
