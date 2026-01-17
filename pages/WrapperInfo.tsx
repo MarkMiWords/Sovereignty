@@ -63,8 +63,8 @@ URL: ACAPTIVEAUDIENCE.COM
 
       <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 border-b border-white/5">
         <Link to="/author-builder" className="text-accent text-[11px] font-bold uppercase tracking-[0.4em] mb-12 block hover:underline transition-all">← Return to Studio</Link>
-        <h1 className="text-7xl md:text-9xl font-serif font-black italic text-white mb-6 tracking-tighter leading-none">WRAP.</h1>
-        <p className="text-2xl md:text-3xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"The digital bridge for system-impacted truth. Your Write Right AI Partner."</p>
+        <h1 className="text-7xl md:text-9xl font-serif font-black italic text-white mb-6 tracking-tighter leading-none">PROFILE.</h1>
+        <p className="text-2xl md:text-3xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"Your WRAP Profile is the baseline for your partner. Calibrate it to protect your truth."</p>
       </section>
 
       <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 space-y-32">
@@ -73,12 +73,12 @@ URL: ACAPTIVEAUDIENCE.COM
           <div className="absolute -top-10 -right-10 p-8 opacity-[0.03] text-[15rem] font-serif italic select-none group-hover/train:opacity-[0.07] transition-opacity duration-1000">WRAP</div>
           
           <div className="relative z-10">
-            <h2 className="text-white text-4xl font-serif italic mb-4">Studio Intelligence <span className="text-accent">Training.</span></h2>
-            <p className="text-gray-500 text-base italic mb-16 max-w-xl">Calibrate WRAP to match your specific voice. This profile is locked into your private workspace to guide the AI's assistance.</p>
+            <h2 className="text-white text-4xl font-serif italic mb-4">Voice <span className="text-accent">Calibration.</span></h2>
+            <p className="text-gray-500 text-base italic mb-16 max-w-xl">Training your WRAP Profile ensures that when you 'Scrub' or 'Rinse' your prose, the AI respects your unique dialect and dialogue.</p>
 
             <div className="grid gap-16">
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-accent uppercase tracking-[0.4em]">Identity / Workspace Name</label>
+                <label className="text-[10px] font-black text-accent uppercase tracking-[0.4em]">Author Name / Identity</label>
                 <input 
                   value={profile.name} 
                   onChange={e => setProfile({...profile, name: e.target.value})}
@@ -89,14 +89,14 @@ URL: ACAPTIVEAUDIENCE.COM
 
               <div className="grid md:grid-cols-2 gap-12">
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Slang & Dialect Level</label>
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Dialect Integrity Level</label>
                   <select 
                     value={profile.dialectLevel} 
                     onChange={e => setProfile({...profile, dialectLevel: e.target.value})}
                     className="w-full bg-black border border-white/10 p-5 text-[11px] font-bold tracking-widest outline-none focus:border-accent text-gray-400 uppercase cursor-pointer hover:bg-white/5 transition-all"
                   >
-                    <option>Standard English Only</option>
-                    <option>Balanced (Light Context)</option>
+                    <option>Formal English (Standard)</option>
+                    <option>Balanced (Light Slang)</option>
                     <option>Authentic (Street Dialect)</option>
                     <option>Raw (Heavy Vernacular)</option>
                   </select>
@@ -114,12 +114,12 @@ URL: ACAPTIVEAUDIENCE.COM
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">The Core Mission</label>
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">The 'Don't-Touch' Rule (Core Mission)</label>
                 <textarea 
                   value={profile.customContext}
                   onChange={e => setProfile({...profile, customContext: e.target.value})}
                   className="w-full bg-black border border-white/10 p-8 text-lg font-serif italic leading-relaxed outline-none focus:border-accent text-white h-48 rounded-sm shadow-inner" 
-                  placeholder="Describe the 'main truth' you want this WRAP partner to protect and refine..."
+                  placeholder="Describe parts of your writing the AI should never change (e.g., specific slang, dialogue style, or raw emotion)..."
                 />
               </div>
 
@@ -127,8 +127,8 @@ URL: ACAPTIVEAUDIENCE.COM
                 onClick={saveProfile}
                 className="group relative bg-accent text-white py-8 text-[11px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-orange-600 transition-all rounded-sm overflow-hidden"
               >
-                <span className="relative z-10">Update Studio Intelligence</span>
-                <div className="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
+                <span className="relative z-10">Synchronize WRAP Profile</span>
+                <div className="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-y-0 transition-transform duration-500"></div>
               </button>
             </div>
           </div>

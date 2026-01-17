@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Logo from './Logo';
 
 interface NavbarProps {
@@ -8,7 +9,6 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const location = useLocation();
 
   // Load tooltip preference
   const showTooltips = (() => {
@@ -83,7 +83,7 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
             to="/author-builder" 
             label="My Sheets" 
             title="WRAP Workspace" 
-            subtitle="Draft and refine your narrative using the Write Right AI Partner." 
+            subtitle="Draft and refine your legacy. Personalize your WRAP Profile here." 
           />
           <NavItem 
             to="/sovereign-vault" 

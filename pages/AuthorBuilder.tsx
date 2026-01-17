@@ -1,13 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { queryPartner, smartSoap, jiveContent, generateSpeech, analyzeVoiceAndDialect, performOCR } from '../services/geminiService';
-import { Message, Chapter, MediaAsset, VaultStorage, VaultSheet, EfficiencyLog } from '../types';
+import { queryPartner, smartSoap, performOCR } from '../services/geminiService';
+import { Message, Chapter, VaultStorage, VaultSheet, EfficiencyLog } from '../types';
 
 // Declare mammoth for Word import
 declare const mammoth: any;
 
-const PERSONAS = ['Standard', 'Bogan', 'Hillbilly', 'Homeboy', 'Lad', 'Eshay', 'Chav', 'Bogger', 'Gopnik', 'Scouse', 'Valley', 'Posh'];
 const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Story', 'Sad Story', 'Tragic Story', 'Life Story'];
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
 
@@ -77,23 +76,23 @@ const AuthorBuilder: React.FC = () => {
     if (messages.length === 0 && authorProfile) {
       setMessages([{ 
         role: 'assistant', 
-        content: `Welcome back, ${authorProfile.name}. I have loaded your voice profile (${authorProfile.dialectLevel}). Ready to polish the next chapter of your legacy.` 
+        content: `Welcome back, ${authorProfile.name}. I have loaded your WRAP Profile (${authorProfile.dialectLevel}). Ready to polish the next chapter of your legacy.` 
       }]);
     }
   }, [authorProfile]);
 
   const logEfficiency = (action: string, metrics: any) => {
-    const vault: VaultStorage = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[],"efficiencyLogs":[]}');
+    const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[],"efficiencyLogs":[]}');
     if (!vault.efficiencyLogs) vault.efficiencyLogs = [];
-    const newLog: EfficiencyLog = { id: Date.now().toString(), timestamp: new Date().toISOString(), action, metrics };
+    const newLog = { id: Date.now().toString(), timestamp: new Date().toISOString(), action, metrics };
     vault.efficiencyLogs.unshift(newLog);
     localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
   };
 
   const handleEmergencyAutoVault = () => {
-    const vault: VaultStorage = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
+    const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
     const newKey = generateCourierCode();
-    const newSheet: VaultSheet = { id: `auto-${Date.now()}`, timestamp: new Date().toISOString(), dispatchKey: newKey, status: 'archived', data: { ...activeChapter } };
+    const newSheet = { id: `auto-${Date.now()}`, timestamp: new Date().toISOString(), dispatchKey: newKey, status: 'archived', data: { ...activeChapter } };
     vault.sheets.unshift(newSheet);
     localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
     alert(`SOVEREIGN STANDARD REACHED: 1,000-word quality threshold hit. Installment archived to THE BIG HOUSE. Continuing session.`);
@@ -184,9 +183,18 @@ const AuthorBuilder: React.FC = () => {
               <button onClick={() => setShowSoapMenu(!showSoapMenu)} className={`flex items-center gap-3 px-6 py-2 rounded-full border border-white/10 transition-all bg-white/5 font-black uppercase tracking-widest text-[9px] ${isSoaping ? 'text-orange-500 animate-pulse' : 'text-gray-500 hover:text-white'}`}>Drop The Soap</button>
               {showSoapMenu && (
                 <div className="absolute right-0 mt-32 w-48 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100] overflow-hidden">
-                  <button onClick={() => handleSoap('rinse')} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5 border-b border-white/5">Rinse (Punctuation)</button>
-                  <button onClick={() => handleSoap('scrub')} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5 border-b border-white/5">Scrub (Literary Polish)</button>
-                  <button onClick={() => handleSoap('sanitize')} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 hover:bg-white/5">Sanitize (Legal PII)</button>
+                  <button onClick={() => handleSoap('rinse')} className="w-full p-4 text-left group">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 group-hover:text-white">Rinse</p>
+                    <p className="text-[7px] text-gray-700 uppercase">Light Punctuation only</p>
+                  </button>
+                  <button onClick={() => handleSoap('scrub')} className="w-full p-4 text-left group border-t border-white/5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-orange-500 group-hover:text-white">Scrub</p>
+                    <p className="text-[7px] text-gray-700 uppercase">Tighten prose, keep dialogue</p>
+                  </button>
+                  <button onClick={() => handleSoap('sanitize')} className="w-full p-4 text-left group border-t border-white/5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-red-500 group-hover:text-red-400">Sanitize</p>
+                    <p className="text-[7px] text-gray-700 uppercase">PII Redaction Mode</p>
+                  </button>
                 </div>
               )}
               <button onClick={() => setShowActionMenu(!showActionMenu)} className="bg-orange-500 text-white px-10 py-3 text-[10px] font-black uppercase tracking-[0.4em] rounded-sm hover:bg-orange-600 transition-all">Actions</button>
@@ -229,7 +237,7 @@ const AuthorBuilder: React.FC = () => {
            <div ref={chatEndRef} />
         </div>
         <form onSubmit={handlePartnerChat} className="shrink-0 p-10 bg-[#0a0a0a] border-t border-white/5 flex flex-col gap-4">
-           <textarea value={partnerInput} onChange={(e) => setPartnerInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handlePartnerChat())} className="w-full bg-[#030303] border border-white/10 p-6 text-base font-serif italic text-white focus:border-orange-500/50 outline-none resize-none h-32 rounded-sm shadow-inner" placeholder="Talk to WRAP..." />
+           <textarea value={partnerInput} onChange={(e) => setPartnerInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handlePartnerChat())} className="w-full bg-[#030303] border border-white/10 p-4 text-base font-serif italic text-white focus:border-orange-500/50 outline-none resize-none h-32 rounded-sm shadow-inner" placeholder="Talk to WRAP..." />
            <button type="submit" className="w-full bg-white text-black py-4 text-[10px] font-black uppercase tracking-[0.4em] rounded-sm transition-all hover:bg-orange-500 hover:text-white shadow-xl">Transcribe To Partner</button>
         </form>
       </aside>

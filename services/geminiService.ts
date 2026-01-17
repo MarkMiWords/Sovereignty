@@ -15,10 +15,10 @@ const LEGAL_GUARDRAIL = `
 const HUMANITARIAN_MISSION = `
   HUMANITARIAN MISSION & QUALITY STANDARD: 
   You are serving the world's first sovereign digital workspace for incarcerated voices. 
-  This is a humanitarian project aimed at rehabilitative storytelling and systemic reform documentation.
   Your goal is to ensure that while the stories are raw, the quality of the prose remains world-class.
+  STRICT VOICE PROTOCOL: Do NOT sanitize the grit or change the unique dialect. 
+  DIALOGUE INTEGRITY: Never rewrite spoken dialogue unless it is for basic punctuation clarity.
   STRICT BREVITY PROTOCOL: Enforce a 1,000-word limit per installment. 
-  Explain to authors that this structure ensures maximum reader engagement on Substack and high formatting quality for physical books.
 `;
 
 const WRAPPER_IDENTITY = `
@@ -26,9 +26,6 @@ const WRAPPER_IDENTITY = `
   Writers Reliable Assistant for Polishing Passages and Editing Rough-drafts.
 `;
 
-/**
- * Metadata Tracking for Institutional Viability
- */
 export interface UsageMetrics {
   estimatedTokens: number;
   humanHoursSaved: number;
@@ -40,14 +37,11 @@ function calculateUsage(text: string, multiplier: number = 1): UsageMetrics {
   const estimatedTokens = words * 1.5 * multiplier;
   return {
     estimatedTokens,
-    humanHoursSaved: words / 250, // Assuming 250 words per hour for manual carceral typing
-    wholesaleCostEstimate: (estimatedTokens / 1000) * 0.01 // Concept cost base
+    humanHoursSaved: words / 250,
+    wholesaleCostEstimate: (estimatedTokens / 1000) * 0.01
   };
 }
 
-/**
- * OCR Engine: Converts image data (handwritten scraps or typed pages) to digital text.
- */
 export async function performOCR(imageBase64: string): Promise<{text: string, metrics: UsageMetrics}> {
   const prompt = `Perform high-precision OCR. Transcribe exactly. Return ONLY text.`;
   try {
@@ -57,15 +51,12 @@ export async function performOCR(imageBase64: string): Promise<{text: string, me
       config: { systemInstruction: "Institutional OCR Mode." }
     });
     const text = response.text || "";
-    return { text, metrics: calculateUsage(text, 2.5) }; // OCR is higher intensity
+    return { text, metrics: calculateUsage(text, 2.5) };
   } catch (err) {
     throw new Error("OCR Link Failed.");
   }
 }
 
-/**
- * Analyzes a user's voice sample for Dialect & UI Localization.
- */
 export async function analyzeVoiceAndDialect(audioBase64: string): Promise<any> {
   const prompt = `Analyze audio for language and regional dialect. Provide UI translations for: Registry, Sheets, Actions, Speak, Dictate, Drop the Soap, Mastering Suite, New Sheet.`;
   try {
@@ -92,12 +83,20 @@ export async function analyzeVoiceAndDialect(audioBase64: string): Promise<any> 
 }
 
 export async function smartSoap(text: string, level: 'rinse' | 'scrub' | 'sanitize'): Promise<{text: string, metrics: UsageMetrics}> {
-  let system = level === 'rinse' ? "Lightly fix grammar." : level === 'scrub' ? "Full literary polish." : "PII Redaction Mode.";
+  let system = "";
+  if (level === 'rinse') {
+    system = "Lightly fix grammar and punctuation. Do NOT change word choice or dialogue.";
+  } else if (level === 'scrub') {
+    system = "Full literary polish. Tighten sentences and remove filler, but PRESERVE all spoken dialogue and the author's unique voice/dialect.";
+  } else {
+    system = "PII Redaction Mode. Remove real names and locations to protect from defamation/retaliation.";
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: text,
-      config: { systemInstruction: system },
+      config: { systemInstruction: system + " " + HUMANITARIAN_MISSION },
     });
     const resultText = response.text || text;
     return { text: resultText, metrics: calculateUsage(resultText, 1.2) };
@@ -116,7 +115,7 @@ export async function queryPartner(
   try {
     const contents = history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] }));
     contents.push({ role: 'user', parts: [{ text: `[CONTEXT] ${activeSheetContent.substring(0, 500)} [/CONTEXT] ${message}` }] });
-    const systemInstruction = `You are WRAPPER. Regional Archive: ${region}. Style: ${style}. ${HUMANITARIAN_MISSION}`;
+    const systemInstruction = `You are WRAPPER. Regional Archive: ${region}. Style: ${style}. ${HUMANITARIAN_MISSION} ${WRAPPER_IDENTITY}`;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: contents as any,
@@ -124,7 +123,6 @@ export async function queryPartner(
     });
     const content = response.text || "";
     
-    // Extract Search Grounding sources if available
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources: GroundingSource[] = groundingChunks.map((chunk: any) => ({
       web: {
@@ -144,9 +142,6 @@ export async function queryPartner(
   }
 }
 
-/**
- * queryInsight: Search grounding for archival discovery in Narratives.tsx
- */
 export async function queryInsight(query: string): Promise<Message> {
   try {
     const response = await ai.models.generateContent({
@@ -177,9 +172,6 @@ export async function queryInsight(query: string): Promise<Message> {
   }
 }
 
-/**
- * jiveContent: Tone and Dialect transformation for carceral voices
- */
 export async function jiveContent(text: string, persona: string): Promise<{text: string, metrics: UsageMetrics}> {
   try {
     const response = await ai.models.generateContent({
@@ -193,9 +185,6 @@ export async function jiveContent(text: string, persona: string): Promise<{text:
   }
 }
 
-/**
- * generateSpeech: Single-speaker text-to-speech synthesis
- */
 export async function generateSpeech(text: string, voiceId: string = 'Zephyr'): Promise<string> {
   try {
     const response = await ai.models.generateContent({
@@ -210,7 +199,6 @@ export async function generateSpeech(text: string, voiceId: string = 'Zephyr'): 
         },
       },
     });
-    // Return raw PCM audio bytes as base64
     return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
   } catch (err) {
     throw new Error("Speech synthesis failed.");
@@ -242,7 +230,7 @@ export async function analyzeFullManuscript(content: string, goal: MasteringGoal
       },
     });
     const report = JSON.parse(response.text?.trim() || "{}");
-    return { ...report, metrics: calculateUsage(content, 5) }; // Pro model is more expensive
+    return { ...report, metrics: calculateUsage(content, 5) };
   } catch (err) {
     return { summary: "Audit failed.", toneAssessment: "", structuralCheck: "", legalSafetyAudit: "", resourceIntensity: 0, marketabilityScore: 0, suggestedTitle: "Untitled", mediumSpecificAdvice: "" };
   }

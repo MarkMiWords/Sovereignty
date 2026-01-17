@@ -53,17 +53,17 @@ const Home: React.FC = () => {
                <div className="space-y-6 p-12 bg-black border border-white/5 rounded-sm group hover:border-orange-500/20 transition-all">
                   <div className="text-3xl mb-4">🔐</div>
                   <h3 className="text-xl font-serif italic text-white">1. Secure Access</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Use the invite code <span className="text-orange-500 font-bold">"captivate me"</span> to enter the private studio. This ensures the pilot stays within the stable.</p>
+                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Use the invite phrase <span className="text-orange-500 font-bold uppercase">"captivate me"</span> to enter the private studio. This phrase protects the integrity of the pilot.</p>
                </div>
                <div className="space-y-6 p-12 bg-black border border-white/5 rounded-sm group hover:border-orange-500/20 transition-all">
                   <div className="text-3xl mb-4">🧠</div>
-                  <h3 className="text-xl font-serif italic text-white">2. Train Your WRAP</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Before writing, head to <span className="text-orange-500">WRAP Info</span> to set your dialect, style, and core truth. Your AI partner will calibrate to YOU.</p>
+                  <h3 className="text-xl font-serif italic text-white">2. Set WRAP Profile</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Head to <span className="text-orange-500 uppercase">WRAP Profile</span> to set your tone and core mission. Your AI partner needs this to protect your unique voice.</p>
                </div>
                <div className="space-y-6 p-12 bg-black border border-white/5 rounded-sm group hover:border-orange-500/20 transition-all">
                   <div className="text-3xl mb-4">⚖️</div>
-                  <h3 className="text-xl font-serif italic text-white">3. Sovereign Audit</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Once your sheet hits the threshold, use the <span className="text-orange-500">Mastering Suite</span> to perform a final legal safety check before distribution.</p>
+                  <h3 className="text-xl font-serif italic text-white">3. Scrub vs. Rinse</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed font-light italic">Use <span className="text-orange-500 uppercase">Scrub</span> to tighten prose while keeping dialogue intact. <span className="text-orange-500 uppercase">Rinse</span> is for light punctuation only.</p>
                </div>
             </div>
          </div>
