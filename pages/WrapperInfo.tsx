@@ -131,12 +131,12 @@ URL: ACAPTIVEAUDIENCE.COM
                   </select>
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Interface Guidance</label>
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Information Balloons (Tooltips)</label>
                   <button 
                     onClick={() => setProfile({...profile, showTooltips: !profile.showTooltips})}
                     className={`w-full border p-5 text-[11px] font-black tracking-widest uppercase transition-all flex items-center justify-between ${profile.showTooltips ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5 text-[var(--accent)]' : 'border-white/10 text-gray-600'}`}
                   >
-                    {profile.showTooltips ? 'Tooltips Active' : 'Tooltips Hidden'}
+                    {profile.showTooltips ? 'Balloons Active' : 'Balloons Hidden'}
                     <div className={`w-2 h-2 rounded-full ${profile.showTooltips ? 'bg-[var(--accent)] animate-pulse' : 'bg-gray-800'}`}></div>
                   </button>
                 </div>
