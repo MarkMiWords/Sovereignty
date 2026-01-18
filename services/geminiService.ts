@@ -4,7 +4,6 @@ import { Message, ManuscriptReport, MasteringGoal } from "../types";
 /**
  * CLIENT-SIDE FETCH BRIDGE
  * This service communicates with Vercel Serverless Functions (/api/*).
- * Credential logic is handled entirely on the server to ensure security.
  */
 
 export interface UsageMetrics {
@@ -31,6 +30,19 @@ async function secureFetch(endpoint: string, body: object) {
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
+}
+
+export async function generateImage(prompt: string): Promise<{imageUrl: string, metrics: UsageMetrics}> {
+  try {
+    const data = await secureFetch('generate-image', { prompt });
+    return { 
+      imageUrl: data.imageUrl, 
+      metrics: { estimatedTokens: 1000, humanHoursSaved: 2, simulatedResourceLoad: 0.15 } 
+    };
+  } catch (error) {
+    console.error("CLIENT_IMAGE_GEN_ERROR:", error);
+    throw new Error("Image Generation Link Interrupted.");
+  }
 }
 
 export async function queryInsight(message: string): Promise<Message & {metrics?: UsageMetrics}> {

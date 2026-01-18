@@ -5,6 +5,8 @@ export interface UsageMetrics {
   estimatedTokens: number;
   humanHoursSaved: number;
   wholesaleCostEstimate: number;
+  // Added to align with metrics returned by Gemini services
+  simulatedResourceLoad?: number;
 }
 
 export interface EfficiencyLog {
@@ -49,8 +51,6 @@ export interface Book {
   slug: string;
   releaseYear: string;
   buyUrl?: string;
-  createdAt?: number;
-  updatedAt?: number;
 }
 
 export interface GroundingSource {
