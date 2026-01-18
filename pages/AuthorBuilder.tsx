@@ -2,10 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { queryPartner, smartSoap, performOCR } from '../services/geminiService';
-import { Message, Chapter, VaultStorage, VaultSheet, EfficiencyLog } from '../types';
-
-// Declare mammoth for Word import
-declare const mammoth: any;
+import { Message, Chapter } from '../types';
 
 const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Story', 'Sad Story', 'Tragic Story', 'Life Story'];
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
@@ -14,28 +11,36 @@ const FONT_PAIRINGS = [
   { name: 'Classic', title: 'font-serif font-black italic', body: 'font-serif text-xl' },
   { name: 'Modern', title: 'font-serif font-bold', body: 'font-sans text-lg' },
   { name: 'Typewriter', title: 'font-mono uppercase tracking-tighter', body: 'font-mono text-base tracking-tight' },
-  { name: 'Manuscript', title: 'font-serif italic font-light', body: 'font-serif italic text-2xl leading-relaxed' },
+  { name: 'Manuscript', title: 'font-serif italic font-light', body: 'font-serif italic text-2xl leading-relaxed' }
 ];
 
 const DEFAULT_TITLE = "In the beginning was the word...";
 const MAX_WORDS = 1000;
 const WARNING_WORDS = 900;
-const MAX_OCR_SIZE = 4 * 1024 * 1024; // 4MB
+const MAX_OCR_SIZE = 4 * 1024 * 1024;
 
 function generateCourierCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'AT-';
-  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   code += '-';
-  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   return code;
 }
 
 const AuthorBuilder: React.FC = () => {
   const navigate = useNavigate();
   const [chapters, setChapters] = useState<Chapter[]>(() => {
-    const saved = localStorage.getItem('wrap_sheets_v4');
-    return saved ? JSON.parse(saved) : [{ id: '1', title: DEFAULT_TITLE, content: '', order: 0, media: [], subChapters: [] }];
+    try {
+      const saved = localStorage.getItem('wrap_sheets_v4');
+      return saved ? JSON.parse(saved) : [{ id: '1', title: DEFAULT_TITLE, content: '', order: 0, media: [], subChapters: [] }];
+    } catch (e) {
+      return [{ id: '1', title: DEFAULT_TITLE, content: '', order: 0, media: [], subChapters: [] }];
+    }
   });
   
   const [activeChapterId, setActiveChapterId] = useState('1');
@@ -54,8 +59,10 @@ const AuthorBuilder: React.FC = () => {
   const [region, setRegion] = useState(REGIONS[1]);
 
   const authorProfile = (() => {
-    const saved = localStorage.getItem('aca_author_profile');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('aca_author_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
   })();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -70,95 +77,114 @@ const AuthorBuilder: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('wrap_sheets_v4', JSON.stringify(chapters));
-    if (isLimitReached) handleEmergencyAutoVault();
+    if (isLimitReached) {
+      handleEmergencyAutoVault();
+    }
   }, [chapters]);
 
   useEffect(() => {
     if (messages.length === 0 && authorProfile) {
       setMessages([{ 
         role: 'assistant', 
-        content: `Welcome back, ${authorProfile.name}. I have loaded your WRAP Profile (${authorProfile.dialectLevel}). Ready to polish the next chapter of your legacy.` 
+        content: `Welcome back, ${authorProfile.name}. I have loaded your WRAP Profile. Ready to polish the next chapter of your legacy.` 
       }]);
     }
   }, [authorProfile]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isPartnerLoading]);
 
   const logEfficiency = (action: string, metrics: any) => {
-    const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[],"efficiencyLogs":[]}');
-    if (!vault.efficiencyLogs) vault.efficiencyLogs = [];
-    const newLog = { 
-      id: Date.now().toString(), 
-      timestamp: new Date().toISOString(), 
-      action, 
-      metrics: {
-        ...metrics,
-        wholesaleCostEstimate: metrics.simulatedResourceLoad || 0
-      } 
-    };
-    vault.efficiencyLogs.unshift(newLog);
-    localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
+    try {
+      const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[],"efficiencyLogs":[]}');
+      const newLog = { 
+        id: Date.now().toString(), 
+        timestamp: new Date().toISOString(), 
+        action: action, 
+        metrics: {
+          estimatedTokens: metrics.estimatedTokens || 0,
+          humanHoursSaved: metrics.humanHoursSaved || 0,
+          wholesaleCostEstimate: metrics.simulatedResourceLoad || 0
+        } 
+      };
+      if (!vault.efficiencyLogs) vault.efficiencyLogs = [];
+      vault.efficiencyLogs.unshift(newLog);
+      localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
+    } catch (e) {}
   };
 
   const handleEmergencyAutoVault = () => {
-    const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
-    const newKey = generateCourierCode();
-    const newSheet = { id: `auto-${Date.now()}`, timestamp: new Date().toISOString(), dispatchKey: newKey, status: 'archived', data: { ...activeChapter } };
-    vault.sheets.unshift(newSheet);
-    localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
-    alert(`SOVEREIGN STANDARD REACHED: 1,000-word quality threshold hit. Installment archived to THE BIG HOUSE. Continuing session.`);
-    const nextId = Date.now().toString();
-    const nextTitle = activeChapter.title !== DEFAULT_TITLE ? `${activeChapter.title} (Cont.)` : DEFAULT_TITLE;
-    setChapters(prev => prev.map(c => c.id === activeChapterId ? { id: nextId, title: nextTitle, content: '', order: c.order, media: [], subChapters: [] } : c));
-    setActiveChapterId(nextId);
+    try {
+      const vault = JSON.parse(localStorage.getItem('aca_sovereign_vault') || '{"sheets":[],"books":[],"ai":[],"audits":[]}');
+      const newKey = generateCourierCode();
+      const newSheet = { 
+        id: `auto-${Date.now()}`, 
+        timestamp: new Date().toISOString(), 
+        dispatchKey: newKey, 
+        status: 'archived' as const, 
+        data: { ...activeChapter } 
+      };
+      if (!vault.sheets) vault.sheets = [];
+      vault.sheets.unshift(newSheet);
+      localStorage.setItem('aca_sovereign_vault', JSON.stringify(vault));
+      alert(`SOVEREIGN STANDARD REACHED: threshold hit. Installment archived.`);
+      const nextId = Date.now().toString();
+      const nextTitle = activeChapter.title !== DEFAULT_TITLE ? `${activeChapter.title} (Cont.)` : DEFAULT_TITLE;
+      setChapters(prev => prev.map(c => c.id === activeChapterId ? { id: nextId, title: nextTitle, content: '', order: c.order, media: [], subChapters: [] } : c));
+      setActiveChapterId(nextId);
+    } catch (e) {}
   };
 
   const handleSoap = async (level: 'rinse' | 'scrub' | 'sanitize') => {
     if (!activeChapter.content.trim()) return;
-    setIsSoaping(true); setShowSoapMenu(false);
+    setIsSoaping(true); 
+    setShowSoapMenu(false);
     try {
       const result = await smartSoap(activeChapter.content, level);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
       logEfficiency(`Soap: ${level}`, result.metrics);
-    } finally { setIsSoaping(false); }
+    } finally { 
+      setIsSoaping(false); 
+    }
   };
 
   const handlePartnerChat = async (e?: React.FormEvent, customMsg?: string) => {
     if (e) e.preventDefault();
     const finalMsg = customMsg || partnerInput;
     if (!finalMsg.trim()) return;
-    const userMsg = finalMsg;
     setPartnerInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setMessages(prev => [...prev, { role: 'user', content: finalMsg }]);
     setIsPartnerLoading(true);
     try {
       const context = authorProfile ? `AUTHOR_NAME: ${authorProfile.name}. MISSION: ${authorProfile.customContext}. ` : "";
-      const response = await queryPartner(context + userMsg, style, region, messages, activeChapter.content);
+      const response = await queryPartner(context + finalMsg, style, region, messages, activeChapter.content);
       setMessages(prev => [...prev, response]);
       if (response.metrics) logEfficiency('Partner Chat', response.metrics);
-    } finally { setIsPartnerLoading(false); }
+    } finally { 
+      setIsPartnerLoading(false); 
+    }
   };
 
   const handleOCRUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Industrial Validation: Size Check
     if (file.size > MAX_OCR_SIZE) {
-      alert("FILE EXCEEDS 4MB LIMIT. PLEASE COMPRESS FOR SOVEREIGN PROCESSING.");
+      alert("FILE EXCEEDS 4MB LIMIT.");
       return;
     }
-
-    setIsOCRLoading(true); setShowActionMenu(false);
+    setIsOCRLoading(true); 
+    setShowActionMenu(false);
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const base64 = (event.target?.result as string).split(',')[1];
+      const res = event.target?.result as string;
+      const base64 = res.split(',')[1];
       try {
         const result = await performOCR(base64);
         setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: (c.content ? c.content + '\n\n' : '') + result.text } : c));
-        logEfficiency('Paper-to-Pixel OCR', result.metrics);
+        logEfficiency('OCR', result.metrics);
       } catch (err: any) { 
         alert(err.message); 
       } finally { 
@@ -169,11 +195,22 @@ const AuthorBuilder: React.FC = () => {
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => { if (isResizing.current) { const newWidth = window.innerWidth - e.clientX; if (newWidth > 300 && newWidth < 800) setWrapperWidth(newWidth); } };
-    const handleMouseUp = () => { isResizing.current = false; document.body.style.cursor = 'default'; };
+    const handleMouseMove = (e: MouseEvent) => { 
+      if (isResizing.current) { 
+        const newWidth = window.innerWidth - e.clientX; 
+        if (newWidth > 300 && newWidth < 800) setWrapperWidth(newWidth); 
+      } 
+    };
+    const handleMouseUp = () => { 
+      isResizing.current = false; 
+      document.body.style.cursor = 'default'; 
+    };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); };
+    return () => { 
+      window.removeEventListener('mousemove', handleMouseMove); 
+      window.removeEventListener('mouseup', handleMouseUp); 
+    };
   }, []);
 
   const isAnythingLoading = isPartnerLoading || isSoaping || isOCRLoading;
@@ -181,7 +218,7 @@ const AuthorBuilder: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden selection:bg-orange-500/30">
       <aside className="w-80 border-r border-white/5 bg-[#080808] flex flex-col shrink-0">
-        <div className="flex-grow overflow-y-auto pt-32 pb-4 custom-scrollbar">
+        <div className="flex-grow overflow-y-auto pt-32 pb-4">
           {chapters.map(c => (
             <div key={c.id} onClick={() => setActiveChapterId(c.id)} className={`py-4 px-6 cursor-pointer border-l-2 transition-all ${activeChapterId === c.id ? 'bg-orange-500/15 border-orange-500 text-orange-500' : 'border-transparent text-gray-700 hover:bg-white/5'}`}>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] truncate">{c.title === DEFAULT_TITLE ? 'Untitled Sheet' : c.title}</p>
@@ -200,7 +237,7 @@ const AuthorBuilder: React.FC = () => {
               <button onClick={() => setFontIndex((fontIndex + 1) % FONT_PAIRINGS.length)} className="text-[9px] font-black text-gray-500 hover:text-white uppercase tracking-[0.3em] transition-colors">Font: {currentFont.name}</button>
            </div>
            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4 bg-black/40 border border-white/10 px-6 py-2 rounded-sm group relative">
+              <div className="flex items-center gap-4 bg-black/40 border border-white/10 px-6 py-2 rounded-sm">
                  <div className="w-32 h-1.5 bg-white/5 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-500 ${isLimitReached ? 'bg-red-500' : isWarningReached ? 'bg-orange-500' : 'bg-gray-700'}`} style={{ width: `${(wordCount / MAX_WORDS) * 100}%` }}></div>
                  </div>
@@ -208,33 +245,30 @@ const AuthorBuilder: React.FC = () => {
               </div>
               <button onClick={() => setShowSoapMenu(!showSoapMenu)} className={`flex items-center gap-3 px-6 py-2 rounded-full border border-white/10 transition-all bg-white/5 font-black uppercase tracking-widest text-[9px] ${isSoaping ? 'text-orange-500 animate-pulse' : 'text-gray-500 hover:text-white'}`}>Drop The Soap</button>
               {showSoapMenu && (
-                <div className="absolute right-0 mt-32 w-48 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100] overflow-hidden">
+                <div className="absolute right-0 mt-32 w-48 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100]">
                   <button onClick={() => handleSoap('rinse')} className="w-full p-4 text-left group">
                     <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 group-hover:text-white">Rinse</p>
-                    <p className="text-[7px] text-gray-700 uppercase">Light Punctuation only</p>
                   </button>
                   <button onClick={() => handleSoap('scrub')} className="w-full p-4 text-left group border-t border-white/5">
                     <p className="text-[9px] font-black uppercase tracking-widest text-orange-500 group-hover:text-white">Scrub</p>
-                    <p className="text-[7px] text-gray-700 uppercase">Tighten prose, keep dialogue</p>
                   </button>
                   <button onClick={() => handleSoap('sanitize')} className="w-full p-4 text-left group border-t border-white/5">
                     <p className="text-[9px] font-black uppercase tracking-widest text-red-500 group-hover:text-red-400">Sanitize</p>
-                    <p className="text-[7px] text-gray-700 uppercase">PII Redaction Mode</p>
                   </button>
                 </div>
               )}
               <button onClick={() => setShowActionMenu(!showActionMenu)} className="bg-orange-500 text-white px-10 py-3 text-[10px] font-black uppercase tracking-[0.4em] rounded-sm hover:bg-orange-600 transition-all">Actions</button>
               {showActionMenu && (
-                <div className="absolute right-0 mt-32 w-56 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100] overflow-hidden">
-                  <button onClick={() => ocrInputRef.current?.click()} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-orange-500 hover:text-white hover:bg-orange-500/10 border-b border-white/5">Paper to Pixel (OCR)</button>
+                <div className="absolute right-0 mt-32 w-56 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100]">
+                  <button onClick={() => ocrInputRef.current?.click()} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-orange-500 hover:text-white hover:bg-orange-500/10 border-b border-white/5">Paper to Pixel</button>
                   <button onClick={() => fileInputRef.current?.click()} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5">Import File</button>
                 </div>
               )}
            </div>
         </div>
 
-        <div className="flex-grow flex flex-col px-12 py-12 overflow-y-auto custom-scrollbar">
-           <div className="w-full max-w-none space-y-12 h-full flex flex-col relative">
+        <div className="flex-grow flex flex-col px-12 py-12 overflow-y-auto">
+           <div className="w-full space-y-12 h-full flex flex-col relative">
               <textarea rows={2} value={activeChapter.title} onChange={(e) => { const val = e.target.value; setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, title: val } : c)); }} className={`w-full bg-transparent border-none outline-none focus:ring-0 text-5xl md:text-8xl leading-tight tracking-tighter resize-none overflow-hidden ${currentFont.title}`} placeholder={DEFAULT_TITLE} />
               <textarea value={activeChapter.content} onChange={(e) => { if (isLimitReached) return; const val = e.target.value; setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: val } : c)); }} className={`w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-400 text-xl font-serif leading-[2.2] transition-all ${currentFont.body} ${isLimitReached ? 'opacity-50 pointer-events-none' : ''}`} placeholder="The narrative begins here..." />
            </div>
@@ -243,9 +277,9 @@ const AuthorBuilder: React.FC = () => {
         <input type="file" ref={ocrInputRef} onChange={handleOCRUpload} className="hidden" accept="image/*" />
       </main>
 
-      <div onMouseDown={() => { isResizing.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1.5 hover:bg-orange-500/40 cursor-ew-resize transition-colors z-[80] bg-white/5 no-print"></div>
+      <div onMouseDown={() => { isResizing.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1.5 hover:bg-orange-500/40 cursor-ew-resize transition-colors z-[80] bg-white/5"></div>
 
-      <aside className="border-l border-white/5 bg-[#080808] flex flex-col shrink-0 relative no-print h-full" style={{ width: `${wrapperWidth}px` }}>
+      <aside className="border-l border-white/5 bg-[#080808] flex flex-col shrink-0 relative h-full" style={{ width: `${wrapperWidth}px` }}>
         <div className="shrink-0 p-10 border-b border-white/5 flex flex-col gap-4 bg-[#0a0a0a] pt-48">
            <div className="flex items-center justify-between">
               <Link to="/wrapper-info" className="flex flex-col">
@@ -261,7 +295,7 @@ const AuthorBuilder: React.FC = () => {
            </div>
            {!authorProfile && <Link to="/wrapper-info" className="text-[8px] font-black text-orange-500 animate-pulse underline">Set Profile</Link>}
         </div>
-        <div className="flex-grow overflow-y-auto p-10 space-y-8 custom-scrollbar bg-black/10">
+        <div className="flex-grow overflow-y-auto p-10 space-y-8 bg-black/10">
            {messages.map((m, i) => (
              <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start animate-fade-in'}`}>
                 <div className={`max-w-[90%] p-6 rounded-sm text-sm font-serif leading-relaxed ${m.role === 'user' ? 'bg-white/5 border border-white/10 text-gray-500 italic' : 'bg-orange-500/5 border border-orange-500/20 text-gray-300'}`}>{m.content}</div>
@@ -271,16 +305,21 @@ const AuthorBuilder: React.FC = () => {
            <div ref={chatEndRef} />
         </div>
         <form onSubmit={handlePartnerChat} className="shrink-0 p-10 bg-[#0a0a0a] border-t border-white/5 flex flex-col gap-4">
-           <textarea value={partnerInput} onChange={(e) => setPartnerInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handlePartnerChat())} className="w-full bg-[#030303] border border-white/10 p-4 text-base font-serif italic text-white focus:border-orange-500/50 outline-none resize-none h-24 rounded-sm shadow-inner" placeholder="Talk to WRAP..." />
+           <textarea 
+             value={partnerInput} 
+             onChange={(e) => setPartnerInput(e.target.value)} 
+             onKeyDown={(e) => {
+               if (e.key === 'Enter' && !e.shiftKey) {
+                 e.preventDefault();
+                 handlePartnerChat();
+               }
+             }}
+             className="w-full bg-[#030303] border border-white/10 p-4 text-base font-serif italic text-white focus:border-orange-500/50 outline-none resize-none h-24 rounded-sm" 
+             placeholder="Talk to WRAP..." 
+           />
            <button type="submit" className="w-full bg-white text-black py-4 text-[10px] font-black uppercase tracking-[0.4em] rounded-sm transition-all hover:bg-orange-500 hover:text-white shadow-xl">Transcribe To Partner</button>
         </form>
       </aside>
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-      `}</style>
     </div>
   );
 };

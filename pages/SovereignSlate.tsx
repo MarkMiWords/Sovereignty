@@ -125,6 +125,12 @@ const SovereignSlate: React.FC = () => {
           <input 
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e as any);
+              }
+            }}
             placeholder="Talk to WRAPPER..." 
             className="flex-grow bg-transparent border-none text-[11px] font-serif focus:ring-0 placeholder:text-gray-800"
           />

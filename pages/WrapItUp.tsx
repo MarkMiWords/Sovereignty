@@ -408,7 +408,18 @@ const WrapItUp: React.FC = () => {
             <div ref={chatEndRef} />
          </div>
          <form onSubmit={handlePartnerChat} className="p-6 bg-black/60 border-t border-white/5 flex flex-col gap-4">
-            <textarea value={partnerInput} onChange={(e) => setPartnerInput(e.target.value)} placeholder="Final dialogue..." className="w-full bg-[#030303] border border-white/10 p-4 text-[12px] font-serif italic text-white focus:border-accent/50 outline-none h-24 rounded-sm" />
+            <textarea 
+              value={partnerInput} 
+              onChange={(e) => setPartnerInput(e.target.value)} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handlePartnerChat();
+                }
+              }}
+              placeholder="Final dialogue..." 
+              className="w-full bg-[#030303] border border-white/10 p-4 text-[12px] font-serif italic text-white focus:border-accent/50 outline-none h-24 rounded-sm" 
+            />
             <button type="submit" className="w-full py-3 bg-white/5 text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 rounded-sm">Transcribe</button>
          </form>
       </aside>

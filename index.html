@@ -20,7 +20,6 @@
             --white-glow: rgba(255, 255, 255, 0.15);
         }
         
-        /* Chroma Profile Definitions */
         body.theme-blue { --accent: #3498db; --accent-gold: #5dade2; --accent-beige: #d6eaf8; --accent-glow: rgba(52, 152, 219, 0.4); }
         body.theme-red { --accent: #e74c3c; --accent-gold: #f1948a; --accent-beige: #fadbd8; --accent-glow: rgba(231, 76, 60, 0.4); }
         body.theme-emerald { --accent: #2ecc71; --accent-gold: #82e0aa; --accent-beige: #d4efdf; --accent-glow: rgba(46, 204, 113, 0.4); }
@@ -66,35 +65,36 @@
         .animate-subtle-drift { animation: subtle-drift 120s infinite alternate ease-in-out; }
     </style>
     <script>
-        try {
-            // Apply theme immediately to prevent flashing
-            const profileRaw = localStorage.getItem('aca_author_profile');
-            if (profileRaw) {
-                const profile = JSON.parse(profileRaw);
-                if (profile.theme && profile.theme !== 'amber') {
-                    document.documentElement.className = 'theme-' + profile.theme;
-                    document.body.className = 'theme-' + profile.theme;
+        (function() {
+            try {
+                const profileRaw = localStorage.getItem('aca_author_profile');
+                if (profileRaw) {
+                    const profile = JSON.parse(profileRaw);
+                    if (profile.theme && profile.theme !== 'amber') {
+                        document.documentElement.className = 'theme-' + profile.theme;
+                        document.body.className = 'theme-' + profile.theme;
+                    }
                 }
+            } catch (e) {
+                console.warn("Theme setup error ignored.");
             }
-        } catch (e) {
-            console.warn("Theme pre-load failed. Falling back to default.");
-        }
+        })();
     </script>
 <script type="importmap">
 {
   "imports": {
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@7.1.5",
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
-    <!-- Entry Point for ES Modules -->
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

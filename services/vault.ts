@@ -2,13 +2,12 @@
 import { Book } from '../types';
 
 const DB_NAME = "aca_sovereign_registry";
-const DB_VERSION = 8; // Protocol V8: Singleton Guard & Committal Verification
+const DB_VERSION = 8; 
 const STORE = "books";
 const SLUG_INDEX = "by_slug";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
-/** Industrial-Grade Slugify: Guaranteed URL safety and deterministic output. */
 export function slugify(input: string): string {
   return input
     .trim()
@@ -20,32 +19,23 @@ export function slugify(input: string): string {
     .slice(0, 80);
 }
 
-/** 
- * Open Vault with Singleton Guard.
- * Ensures only one connection attempt is active at any time.
- */
 export function openVault(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve, reject) => {
-    console.log(`[Vault] Protocol V8 Initializing (v${DB_VERSION})...`);
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = (event: any) => {
+    request.onupgradeneeded = () => {
       const db = request.result;
-      console.log("[Vault] Schema Upgrade: Synchronizing Objects...");
-      
       let store: IDBObjectStore;
       if (!db.objectStoreNames.contains(STORE)) {
         store = db.createObjectStore(STORE, { keyPath: "id" });
       } else {
         store = request.transaction!.objectStore(STORE);
       }
-
       if (!store.indexNames.contains(SLUG_INDEX)) {
         store.createIndex(SLUG_INDEX, "slug", { unique: true });
       }
-      
       if (!store.indexNames.contains("updatedAt")) {
         store.createIndex("updatedAt", "updatedAt", { unique: false });
       }
@@ -56,20 +46,13 @@ export function openVault(): Promise<IDBDatabase> {
       db.onversionchange = () => {
         db.close();
         dbPromise = null;
-        console.warn("[Vault] Connection stale. Closing for update.");
       };
-      console.log("[Vault] Protocol V8 Linked.");
       resolve(db);
     };
 
     request.onerror = () => {
       dbPromise = null;
-      console.error("[Vault] Link Failed:", request.error);
       reject(request.error);
-    };
-
-    request.onblocked = () => {
-      console.warn("[Vault] Update Blocked. Multiple tabs likely open.");
     };
   });
 
@@ -79,29 +62,21 @@ export function openVault(): Promise<IDBDatabase> {
 function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error("Vault Request Interrupted"));
+    req.onerror = () => reject(req.error || new Error("Request Failed"));
   });
 }
 
-function txComplete(tx: IDBTransaction, label: string): Promise<void> {
+function txComplete(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => {
-      console.log(`[Vault] ${label} - Committed.`);
-      resolve();
-    };
-    tx.onabort = () => reject(tx.error || new Error(`Vault transaction ${label} aborted.`));
+    tx.oncomplete = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error("Aborted"));
     tx.onerror = () => reject(tx.error);
   });
 }
 
-/** 
- * Atomic Save with Committal Verification.
- * After writing, the service verifies the record can be read back immediately.
- */
 export async function saveToVault(input: Omit<Book, "slug"> & { slug?: string }): Promise<Book> {
   const db = await openVault();
   const slug = input.slug?.trim() ? input.slug : slugify(input.title);
-
   const now = Date.now();
   const book: Book = {
     ...input,
@@ -110,21 +85,17 @@ export async function saveToVault(input: Omit<Book, "slug"> & { slug?: string })
     createdAt: input.createdAt ?? now,
   };
 
-  const tx = db.transaction(STORE, "readwrite", { durability: "strict" } as any);
+  const tx = db.transaction(STORE, "readwrite");
   const store = tx.objectStore(STORE);
 
   try {
     store.put(book);
-    await txComplete(tx, "WriteMaster");
-    
-    // Committal Verification Phase
+    await txComplete(tx);
     const verifyTx = db.transaction(STORE, "readonly");
     const verifiedBook = await reqToPromise(verifyTx.objectStore(STORE).get(book.id));
-    if (!verifiedBook) throw new Error("Verification Failed: Master not found in registry after write.");
-    
+    if (!verifiedBook) throw new Error("Verification Failed");
     return verifiedBook;
   } catch (err: any) {
-    if (err.name === 'ConstraintError') throw new Error(`Vault Collision: "${input.title}" is already registered.`);
     throw err;
   }
 }
@@ -150,10 +121,9 @@ export async function deleteFromVault(id: string): Promise<void> {
   const db = await openVault();
   const tx = db.transaction(STORE, "readwrite");
   tx.objectStore(STORE).delete(id);
-  await txComplete(tx, "DeleteMaster");
+  await txComplete(tx);
 }
 
-/** Comprehensive Hard Reset Protocol. */
 export async function purgeVault(): Promise<void> {
   if (dbPromise) {
     const db = await dbPromise;
