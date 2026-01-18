@@ -49,6 +49,8 @@ export interface Book {
   slug: string;
   releaseYear: string;
   buyUrl?: string;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface GroundingSource {

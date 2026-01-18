@@ -31,6 +31,7 @@
             color: #f5f5f5;
             letter-spacing: -0.01em;
             transition: background-color 0.5s ease;
+            margin: 0;
         }
         h1, h2, h3, .font-serif {
             font-family: 'Playfair Display', serif;
@@ -65,11 +66,18 @@
         .animate-subtle-drift { animation: subtle-drift 120s infinite alternate ease-in-out; }
     </style>
     <script>
-        // Apply theme immediately to prevent flashing
-        const profile = JSON.parse(localStorage.getItem('aca_author_profile') || '{}');
-        if (profile.theme && profile.theme !== 'amber') {
-            document.documentElement.className = 'theme-' + profile.theme;
-            document.body.className = 'theme-' + profile.theme;
+        try {
+            // Apply theme immediately to prevent flashing
+            const profileRaw = localStorage.getItem('aca_author_profile');
+            if (profileRaw) {
+                const profile = JSON.parse(profileRaw);
+                if (profile.theme && profile.theme !== 'amber') {
+                    document.documentElement.className = 'theme-' + profile.theme;
+                    document.body.className = 'theme-' + profile.theme;
+                }
+            }
+        } catch (e) {
+            console.warn("Theme pre-load failed. Falling back to default.");
         }
     </script>
 <script type="importmap">
@@ -86,5 +94,7 @@
 </head>
 <body>
     <div id="root"></div>
+    <!-- Entry Point for ES Modules -->
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Book } from '../types';
+import { listVault, saveToVault, purgeVault, getVaultStatus } from '../services/vault';
 
 const SAMPLE_BOOKS: Book[] = [
   {
@@ -20,68 +21,14 @@ const SAMPLE_BOOKS: Book[] = [
 const MAX_FILE_SIZE = 1.5 * 1024 * 1024;
 const INDUSTRIAL_ASPECT = 1600 / 2700; 
 
-// --- Sovereign Vault Core V4 ---
-const VAULT_NAME = 'aca_sovereign_registry';
-const VAULT_VERSION = 4; // Upgraded to V4 for atomic text persistence
-
-const openVault = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(VAULT_NAME, VAULT_VERSION);
-    request.onupgradeneeded = (event: any) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('books')) {
-        db.createObjectStore('books', { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-const saveToVault = async (book: Book) => {
-  const db = await openVault();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('books', 'readwrite');
-    const store = transaction.objectStore('books');
-    store.put(book);
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error);
-  });
-};
-
-const getFromVault = async (): Promise<Book[]> => {
-  try {
-    const db = await openVault();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('books', 'readonly');
-      const store = transaction.objectStore('books');
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (e) {
-    return [];
-  }
-};
-
-const factoryReset = async () => {
-  if (window.confirm("CRITICAL: Wipe all local data, images, and sheets for a Clean Slate?")) {
-    localStorage.clear();
-    const request = indexedDB.deleteDatabase(VAULT_NAME);
-    request.onsuccess = () => {
-      alert("System purged. Reloading...");
-      window.location.href = "/";
-    };
-  }
-};
-// ------------------------------
-
 const PublishedBooks: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [masteringSuccess, setMasteringSuccess] = useState(false);
+  const [vaultStats, setVaultStats] = useState<{ healthy: boolean, version: number, count: number } | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   
   const [masteringAsset, setMasteringAsset] = useState<{ 
     url: string, 
@@ -109,28 +56,59 @@ const PublishedBooks: React.FC = () => {
 
   useEffect(() => {
     loadRegistry();
+    checkVaultHealth();
+    
+    const draft = localStorage.getItem('aca_book_registration_draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        setNewBook(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.warn("Draft restore aborted.");
+      }
+    }
   }, []);
 
-  const loadRegistry = async () => {
-    const userBooks = await getFromVault();
-    const combined = [...userBooks];
-    SAMPLE_BOOKS.forEach(sample => {
-      if (!combined.find(b => b.slug === sample.slug)) combined.push(sample);
-    });
-    setBooks(combined);
+  useEffect(() => {
+    if (isAddingBook) {
+      localStorage.setItem('aca_book_registration_draft', JSON.stringify({
+        title: newBook.title,
+        subtitle: newBook.subtitle,
+        author: newBook.author,
+        description: newBook.description,
+        buyUrl: newBook.buyUrl,
+        releaseYear: newBook.releaseYear
+      }));
+    }
+  }, [newBook, isAddingBook]);
+
+  const checkVaultHealth = async () => {
+    const stats = await getVaultStatus();
+    setVaultStats(stats);
   };
+
+  const loadRegistry = async () => {
+    try {
+      const userBooks = await listVault();
+      // Only show user books in diagnostics, but show all in gallery
+      setBooks([...userBooks]);
+    } catch (e) {
+      console.error("Registry load fail.");
+    }
+  };
+
+  // Gallery display includes samples
+  const galleryBooks = [...books];
+  SAMPLE_BOOKS.forEach(s => {
+    if (!galleryBooks.find(b => b.slug === s.slug)) galleryBooks.push(s);
+  });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === 'application/pdf') {
-       setError("PDF REJECTED: Browsers cannot render PDF as images. Please use a high-quality JPEG or PNG.");
-       return;
-    }
-
     if (file.size > MAX_FILE_SIZE) {
-      setError(`CRITICAL OVERSIZE: ${(file.size / 1024 / 1024).toFixed(1)}MB. Use 1.5MB for stability.`);
+      setError(`CRITICAL OVERSIZE: ${(file.size / 1024 / 1024).toFixed(1)}MB. Use <1.5MB.`);
       return;
     }
 
@@ -183,7 +161,7 @@ const PublishedBooks: React.FC = () => {
         ctx.drawImage(img, 0, 0);
       }
 
-      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.82);
       setNewBook(prev => ({ ...prev, coverUrl: finalDataUrl }));
       setMasteringAsset(null);
       setIsProcessing(false);
@@ -192,40 +170,46 @@ const PublishedBooks: React.FC = () => {
     img.src = masteringAsset.url;
   };
 
-  const saveNewBook = async () => {
+  const handleSave = async () => {
     if (!newBook.title || !newBook.coverUrl) {
-      setError("INTEGRITY ERROR: Title and Master Image are mandatory for Vault registry.");
+      setError("INTEGRITY: Title and Master Asset are mandatory.");
       return;
     }
     
-    // Explicitly forge the slug to ensure "stickiness" in the link logic
-    const uniqueSlug = newBook.title.toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    const bookToSave: Book = {
-      id: Date.now().toString(),
-      title: newBook.title,
-      subtitle: newBook.subtitle || '',
-      author: newBook.author || 'Anonymous',
-      description: newBook.description || '',
-      coverUrl: newBook.coverUrl,
-      buyUrl: newBook.buyUrl || 'https://www.ingramspark.com/',
-      releaseYear: newBook.releaseYear || '2024',
-      slug: uniqueSlug
-    };
-    
+    setIsProcessing(true);
     try {
+      const bookToSave: Omit<Book, "slug"> = {
+        id: Date.now().toString(),
+        title: newBook.title.trim(),
+        subtitle: (newBook.subtitle || '').trim(),
+        author: (newBook.author || 'Anonymous Author').trim(),
+        description: (newBook.description || '').trim(),
+        coverUrl: newBook.coverUrl,
+        buyUrl: (newBook.buyUrl || 'https://www.ingramspark.com/').trim(),
+        releaseYear: newBook.releaseYear || '2024'
+      };
+      
       await saveToVault(bookToSave);
       await loadRegistry();
+      await checkVaultHealth();
+      
+      localStorage.removeItem('aca_book_registration_draft');
       setIsAddingBook(false);
       setNewBook({ title: '', subtitle: '', author: '', description: '', releaseYear: '2024', coverUrl: '', buyUrl: 'https://www.ingramspark.com/' });
       setMasteringSuccess(false);
       setError(null);
-    } catch (e) {
-      setError("VAULT WRITE ERROR: The registry failed to lock the data. Try a 'Factory Reset'.");
+      alert("MASTER VERIFIED: Indexed in Protocol V8 Vault.");
+    } catch (e: any) {
+      setError(`VAULT FAIL: ${e.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (window.confirm("CRITICAL PURGE: This closes all vault handles and erases all data. Continue?")) {
+      await purgeVault();
+      window.location.reload();
     }
   };
 
@@ -234,33 +218,34 @@ const PublishedBooks: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 border-b border-white/5">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-fade-in">
           <div>
-            <span className="text-[var(--accent)] tracking-[0.6em] uppercase text-[10px] font-bold mb-6 block">Master Registry</span>
+            <div className="flex items-center gap-4 mb-6">
+               <span className="text-[var(--accent)] tracking-[0.6em] uppercase text-[10px] font-bold block">Master Registry</span>
+               {vaultStats && (
+                 <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
+                    <div className={`w-1 h-1 rounded-full ${vaultStats.healthy ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
+                    <span className="text-[7px] font-black uppercase tracking-widest text-gray-500">Protocol V8 Linked</span>
+                 </div>
+               )}
+            </div>
             <h1 className="text-6xl md:text-9xl font-serif font-black mb-12 italic leading-none tracking-tighter uppercase text-white">Book <span className="animate-living-amber">Registry.</span></h1>
-            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Sovereign Vault V4.0 — High-Fidelity Text & Image Persistence."</p>
+            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Industrial Resilience Protocol V8.0 Active. Verified Committal Enabled."</p>
           </div>
           <div className="pb-12 flex flex-col md:flex-row gap-6">
-            <button onClick={() => setIsAddingBook(true)} className="bg-[var(--accent)] text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:bg-orange-600 transition-all rounded-sm">Register Master</button>
-            <button onClick={factoryReset} className="text-[7px] text-red-900 font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Clean Slate Reset</button>
+            <button onClick={() => setIsAddingBook(true)} className="bg-[var(--accent)] text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:bg-orange-600 transition-all rounded-sm border border-orange-500/20">Register Master</button>
+            <button onClick={handleReset} className="text-[7px] text-red-900 font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Factory Reset</button>
           </div>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-16">
-          {books.map((book) => (
+          {galleryBooks.map((book) => (
             <div key={book.id} className="group flex flex-col relative animate-fade-in">
               <Link to={`/book/${book.slug}`} className="relative mb-8 block shadow-2xl border-l-[10px] border-black rounded-r-sm bg-[#0a0a0a] aspect-[16/27] overflow-hidden flex items-center justify-center p-3">
                 {book.coverUrl ? (
-                  <img 
-                    src={book.coverUrl} 
-                    alt={book.title} 
-                    className="w-full h-full object-contain grayscale-[30%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000"
-                    onError={(e) => {
-                       (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1600x2700?text=Vault+Link+Broken';
-                    }}
-                  />
+                  <img src={book.coverUrl} alt={book.title} loading="eager" className="w-full h-full object-contain grayscale-[30%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000" />
                 ) : (
-                  <div className="text-gray-800 text-[10px] font-black uppercase tracking-widest text-center px-6">Master Asset Not Syncing</div>
+                  <div className="text-gray-800 text-[10px] font-black uppercase tracking-widest text-center px-6">Empty Master</div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-transparent opacity-60"></div>
               </Link>
@@ -278,6 +263,43 @@ const PublishedBooks: React.FC = () => {
         </div>
       </div>
 
+      {/* Protocol V8 Diagnostic Tool */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 border-t border-white/5 mt-24">
+         <button onClick={() => setShowDiagnostics(!showDiagnostics)} className="text-[9px] font-black text-gray-700 uppercase tracking-widest hover:text-orange-500 transition-colors">
+            {showDiagnostics ? 'Hide Vault Audit' : 'Show Vault Audit (Diagnostics)'}
+         </button>
+         
+         {showDiagnostics && (
+           <div className="mt-8 bg-black/40 border border-white/10 p-10 rounded-sm animate-fade-in overflow-x-auto">
+              <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-6 underline">Registry Hardware Status</h4>
+              <table className="w-full text-left">
+                 <thead>
+                    <tr className="border-b border-white/10">
+                       <th className="py-4 text-[8px] font-bold text-gray-600 uppercase">ID</th>
+                       <th className="py-4 text-[8px] font-bold text-gray-600 uppercase">Title</th>
+                       <th className="py-4 text-[8px] font-bold text-gray-600 uppercase">Slug</th>
+                       <th className="py-4 text-[8px] font-bold text-gray-600 uppercase">Master Asset</th>
+                    </tr>
+                 </thead>
+                 <tbody className="text-[10px] font-mono text-gray-400">
+                    {books.length === 0 ? (
+                      <tr><td colSpan={4} className="py-8 text-center italic text-gray-700">Vault reported zero registered masters.</td></tr>
+                    ) : (
+                      books.map(b => (
+                        <tr key={b.id} className="border-b border-white/5">
+                           <td className="py-4 pr-6 opacity-40">{b.id}</td>
+                           <td className="py-4 pr-6 text-white font-serif">{b.title}</td>
+                           <td className="py-4 pr-6 text-orange-500">{b.slug}</td>
+                           <td className="py-4 pr-6 text-[8px]">{b.coverUrl ? `READY (${(b.coverUrl.length / 1024).toFixed(1)}kb)` : 'MISSING'}</td>
+                        </tr>
+                      ))
+                    )}
+                 </tbody>
+              </table>
+           </div>
+         )}
+      </div>
+
       {isAddingBook && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
           <div className="max-w-7xl w-full bg-[#0a0a0a] border border-white/10 p-12 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -289,10 +311,7 @@ const PublishedBooks: React.FC = () => {
             <div className="grid lg:grid-cols-3 gap-12">
                <div className="lg:col-span-1 space-y-8">
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Book Title</label>
-                      {newBook.title && <span className="text-[7px] text-green-500 font-black uppercase animate-pulse">Synced</span>}
-                    </div>
+                    <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Book Title</label>
                     <input value={newBook.title} onChange={e => setNewBook({...newBook, title: e.target.value})} className="w-full bg-black border border-white/10 p-5 text-sm font-serif outline-none focus:border-[var(--accent)] text-white rounded-sm" />
                   </div>
                   <div className="space-y-2">
@@ -300,11 +319,8 @@ const PublishedBooks: React.FC = () => {
                     <input value={newBook.buyUrl} onChange={e => setNewBook({...newBook, buyUrl: e.target.value})} className="w-full bg-black border border-white/10 p-5 text-sm font-serif outline-none focus:border-cyan-500 text-cyan-400 rounded-sm" />
                   </div>
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Full Blurb / Description</label>
-                      {newBook.description && <span className="text-[7px] text-green-500 font-black uppercase animate-pulse">Mastered</span>}
-                    </div>
-                    <textarea value={newBook.description} onChange={e => setNewBook({...newBook, description: e.target.value})} className="w-full bg-black border border-white/10 p-5 text-sm font-serif outline-none text-white min-h-[160px] rounded-sm resize-none" placeholder="Enter the definitive text..." />
+                    <label className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Full Blurb</label>
+                    <textarea value={newBook.description} onChange={e => setNewBook({...newBook, description: e.target.value})} className="w-full bg-black border border-white/10 p-5 text-sm font-serif outline-none text-white min-h-[220px] rounded-sm resize-none" placeholder="The permanent narrative text..." />
                   </div>
                </div>
                
@@ -316,28 +332,29 @@ const PublishedBooks: React.FC = () => {
                         <img src={newBook.coverUrl} className="w-full h-full object-contain" alt="Master Preview" />
                         {masteringSuccess && (
                           <div className="absolute inset-x-0 bottom-0 bg-green-500 text-white p-3 flex flex-col items-center animate-living-amber-bg">
-                            <span className="text-[8px] font-black uppercase tracking-[0.4em]">Vault Synchronized</span>
-                            <span className="text-[6px] font-bold uppercase tracking-widest opacity-80 mt-1">Ready for Registry</span>
+                            <span className="text-[8px] font-black uppercase tracking-[0.4em]">Master Ready</span>
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="text-center">
                         <span className="text-[10px] text-gray-700 uppercase tracking-widest block mb-2">Upload JPEG Asset</span>
-                        <span className="text-[8px] text-gray-800 uppercase italic">Max 1.5MB</span>
+                        <span className="text-[8px] text-gray-800 uppercase italic">Target < 1.0MB for stability.</span>
                       </div>
                     )}
                     <input type="file" ref={frontInputRef} onChange={handleFileUpload} className="hidden" accept="image/png,image/jpeg" />
                   </div>
-                  <button onClick={saveNewBook} disabled={!newBook.title || !newBook.coverUrl || !!error || isProcessing} className="w-full bg-orange-500 text-white py-6 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl disabled:opacity-20 transition-all rounded-sm">Sync to Master Vault</button>
+                  <button onClick={handleSave} disabled={!newBook.title || !newBook.coverUrl || isProcessing} className="w-full bg-orange-500 text-white py-6 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl disabled:opacity-20 transition-all rounded-sm">
+                    {isProcessing ? "Verifying Sync..." : "Sync To Master Vault"}
+                  </button>
                </div>
 
                <div className="lg:col-span-1 bg-white/[0.02] border border-white/5 p-8 rounded-sm self-start">
-                  <h4 className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest mb-6 underline">The Sovereign Standard</h4>
+                  <h4 className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest mb-6 underline">Sovereign Audit V8</h4>
                   <div className="space-y-6 text-[9px] text-gray-500 uppercase tracking-widest leading-loose">
-                    <p>Format: <span className="text-white font-bold">JPEG or PNG</span> only.</p>
-                    <p>Database: <span className="text-white font-bold">IndexedDB Master Vault V4.0</span>. This survives page reloads and browser restarts.</p>
-                    <p>Persistence: Every field (Title, Blurb, Image) is locked into a single atomic transaction.</p>
+                    <p>Committal: Uses <span className="text-white font-bold">Strict Durability</span> transactions with post-write read-back verification.</p>
+                    <p>Asset Status: Master image is buffered in <span className="text-white font-bold">Base64 Binary</span>. Current size estimate: {(newBook.coverUrl?.length ? (newBook.coverUrl.length / 1024).toFixed(0) : 0)}kb.</p>
+                    <p>Recovery: Use the <span className="text-white font-bold">Audit Log</span> at the bottom of the main registry if UI elements fail to hydrate.</p>
                   </div>
                </div>
             </div>

@@ -1,65 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Book } from '../types';
-
-// --- Sovereign Vault Core V4 ---
-const VAULT_NAME = 'aca_sovereign_registry';
-const VAULT_VERSION = 4;
-
-const openVault = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(VAULT_NAME, VAULT_VERSION);
-    request.onupgradeneeded = (event: any) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('books')) {
-        db.createObjectStore('books', { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-};
-
-const saveToVault = async (book: Book) => {
-  const db = await openVault();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('books', 'readwrite');
-    const store = transaction.objectStore('books');
-    store.put(book);
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error);
-  });
-};
-
-const getFromVault = async (): Promise<Book[]> => {
-  try {
-    const db = await openVault();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction('books', 'readonly');
-      const store = transaction.objectStore('books');
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (e) { return []; }
-};
-
-const deleteFromVault = async (id: string) => {
-  const db = await openVault();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('books', 'readwrite');
-    const store = transaction.objectStore('books');
-    store.delete(id);
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error);
-  });
-};
+import { listVault, saveToVault, deleteFromVault } from '../services/vault';
 
 const CreatorHub: React.FC = () => {
   const navigate = useNavigate();
   const [publishedBooks, setPublishedBooks] = useState<Book[]>([]);
   const [isAddingBook, setIsAddingBook] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [newBook, setNewBook] = useState<Partial<Book>>({
     title: '',
     author: '',
@@ -74,7 +23,7 @@ const CreatorHub: React.FC = () => {
   }, []);
 
   const loadRegistry = async () => {
-    const books = await getFromVault();
+    const books = await listVault();
     setPublishedBooks(books);
   };
 
@@ -88,22 +37,25 @@ const CreatorHub: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const saveNewBook = async () => {
+  const handleSave = async () => {
     if (!newBook.title || !newBook.coverUrl) return;
-    const uniqueSlug = newBook.title.toLowerCase().trim().replace(/[\s_-]+/g, '-');
-    const bookToSave: Book = {
-      id: Date.now().toString(),
-      title: newBook.title || '',
-      author: newBook.author || 'Anonymous',
-      description: newBook.description || '',
-      coverUrl: newBook.coverUrl || '',
-      releaseYear: newBook.releaseYear || '2024',
-      slug: uniqueSlug
-    };
-    await saveToVault(bookToSave);
-    await loadRegistry();
-    setIsAddingBook(false);
-    setNewBook({ title: '', author: '', description: '', releaseYear: '2024', coverUrl: '' });
+    setIsProcessing(true);
+    try {
+      const bookToSave: Omit<Book, "slug"> = {
+        id: Date.now().toString(),
+        title: newBook.title || '',
+        author: newBook.author || 'Anonymous',
+        description: newBook.description || '',
+        coverUrl: newBook.coverUrl || '',
+        releaseYear: newBook.releaseYear || '2024'
+      };
+      await saveToVault(bookToSave);
+      await loadRegistry();
+      setIsAddingBook(false);
+      setNewBook({ title: '', author: '', description: '', releaseYear: '2024', coverUrl: '' });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const removeBook = async (id: string) => {
@@ -156,7 +108,7 @@ const CreatorHub: React.FC = () => {
                   <textarea value={newBook.description} onChange={e => setNewBook({...newBook, description: e.target.value})} className="w-full bg-black border border-white/10 p-5 text-sm font-serif outline-none focus:border-orange-500 text-white min-h-[180px]" placeholder="Description..." />
                </div>
                <div className="space-y-8">
-                  <div onClick={() => coverInputRef.current?.click()} className="w-full aspect-[16/27] bg-black border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer group hover:border-orange-500/40 transition-all relative overflow-hidden rounded-sm">
+                  <div onClick={() => coverInputRef.current?.click()} className="w-full aspect-[16/27] bg-black border-2 border-dashed border-white/10 flex flex-col items-center justify-center cursor-pointer group hover:orange-500/40 transition-all relative overflow-hidden rounded-sm">
                     {newBook.coverUrl ? (
                       <img src={newBook.coverUrl} className="w-full h-full object-contain" alt="Preview" />
                     ) : (
@@ -164,7 +116,9 @@ const CreatorHub: React.FC = () => {
                     )}
                     <input type="file" ref={coverInputRef} onChange={handleCoverUpload} className="hidden" accept="image/png,image/jpeg" />
                   </div>
-                  <button onClick={saveNewBook} disabled={!newBook.title || !newBook.coverUrl} className="w-full bg-orange-500 text-white py-6 text-[10px] font-bold uppercase tracking-[0.4em] shadow-xl disabled:opacity-20 hover:bg-orange-600 rounded-sm">Register Master</button>
+                  <button onClick={handleSave} disabled={!newBook.title || !newBook.coverUrl || isProcessing} className="w-full bg-orange-500 text-white py-6 text-[10px] font-bold uppercase tracking-[0.4em] shadow-xl disabled:opacity-20 hover:bg-orange-600 rounded-sm">
+                    {isProcessing ? "Atomic Sync..." : "Register Master"}
+                  </button>
                </div>
             </div>
           </div>
