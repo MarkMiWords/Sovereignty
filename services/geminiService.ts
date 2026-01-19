@@ -37,7 +37,7 @@ export async function performOCR(imageBase64: string): Promise<{text: string, me
   return { text, metrics: calculateUsage(text, 2.5) };
 }
 
-export async function smartSoap(text: string, level: 'rinse' | 'scrub' | 'sanitize', style: string, region: string): Promise<{text: string, metrics: UsageMetrics}> {
+export async function smartSoap(text: string, level: 'rinse' | 'wash' | 'scrub' | 'sanitize', style: string, region: string): Promise<{text: string, metrics: UsageMetrics}> {
   const ai = getAI();
   const instruction = `
     MISSION: Sovereignty of the carceral voice.
@@ -45,6 +45,7 @@ export async function smartSoap(text: string, level: 'rinse' | 'scrub' | 'saniti
     VOICE PROTOCOL: Preserve unique dialect and grit. DO NOT sanitize emotional truth.
     LEVEL: ${level.toUpperCase()}
     ${level === 'rinse' ? 'MODE: Light Punctuation and Flow audit.' : ''}
+    ${level === 'wash' ? 'MODE: General narrative cleaning. Smooth out repetitive phrases while keeping the raw voice.' : ''}
     ${level === 'scrub' ? 'MODE: Industrial tightening. Remove fluff, keep the slang and grit.' : ''}
     ${level === 'sanitize' ? 'MODE: LEGAL SAFETY. Flag or redact names of staff, police, and victims for defamation protection.' : ''}
   `;
