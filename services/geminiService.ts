@@ -45,7 +45,7 @@ export async function smartSoap(text: string, level: 'rinse' | 'wash' | 'scrub' 
     VOICE PROTOCOL: Preserve unique dialect and grit. DO NOT sanitize emotional truth.
     LEVEL: ${level.toUpperCase()}
     ${level === 'rinse' ? 'MODE: Light Punctuation and Flow audit.' : ''}
-    ${level === 'wash' ? 'MODE: Intermediate narrative cleaning. Smooth out flow while maintaining raw voice characteristics.' : ''}
+    ${level === 'wash' ? 'MODE: General narrative cleaning. Smooth out repetitive phrases while keeping the raw voice intact.' : ''}
     ${level === 'scrub' ? 'MODE: Industrial tightening. Remove fluff, keep the slang and grit.' : ''}
     ${level === 'sanitize' ? 'MODE: LEGAL SAFETY. Flag or redact names of staff, police, and victims for defamation protection.' : ''}
   `;

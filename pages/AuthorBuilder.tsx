@@ -258,6 +258,27 @@ const AuthorBuilder: React.FC = () => {
     }, 2000);
   };
 
+  const handleDictate = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Sovereign Dictation requires a compatible browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.onstart = () => setIsPartnerMicActive(true);
+    recognition.onend = () => setIsPartnerMicActive(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setChapters(prev => prev.map(c => 
+        c.id === activeChapterId 
+        ? { ...c, content: (c.content ? c.content + " " : "") + transcript } 
+        : c
+      ));
+    };
+    recognition.start();
+    setShowWriteMenu(false);
+  };
+
   const closeAllMenus = () => {
     setShowWriteMenu(false);
     setShowSoapMenu(false);
@@ -278,27 +299,6 @@ const AuthorBuilder: React.FC = () => {
       };
       reader.readAsDataURL(file);
     } finally { setIsProducing(false); }
-  };
-
-  const handleDictate = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Sovereign Dictation requires a compatible browser.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.onstart = () => setIsPartnerMicActive(true);
-    recognition.onend = () => setIsPartnerMicActive(false);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setChapters(prev => prev.map(c => 
-        c.id === activeChapterId 
-        ? { ...c, content: (c.content ? c.content + " " : "") + transcript } 
-        : c
-      ));
-    };
-    recognition.start();
-    setShowWriteMenu(false);
   };
 
   return (
@@ -336,7 +336,7 @@ const AuthorBuilder: React.FC = () => {
                        <div className="absolute left-6 top-full mt-1 w-48 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100] overflow-hidden rounded-sm animate-fade-in">
                           <button onClick={() => { contentRef.current?.focus(); setShowWriteMenu(false); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:bg-white/5 border-b border-white/5">Focus Editor</button>
                           <button onClick={handleDictate} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-orange-500 hover:bg-white/5 border-b border-white/5">Dictate</button>
-                          <button onClick={() => { setShowWriteMenu(false); handlePartnerChat(undefined, "Rewrite this content in the Dogg Me style, enhancing the rhythm and street dialect while preserving truth."); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-cyan-400 hover:bg-white/5 border-b border-white/5">Dogg me</button>
+                          <button onClick={() => { setShowWriteMenu(false); handlePartnerChat(undefined, "Rewrite this content in the Dogg Me style, maintaining flow and dialect."); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-cyan-400 hover:bg-white/5 border-b border-white/5">Dogg me</button>
                           <button onClick={() => navigate('/wrapper-info')} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5">Profile Settings</button>
                        </div>
                      )}
@@ -411,7 +411,7 @@ const AuthorBuilder: React.FC = () => {
                         <div className="absolute right-6 top-full mt-1 w-48 bg-[#0d0d0d] border border-white/10 shadow-2xl z-[100] overflow-hidden rounded-sm animate-fade-in">
                           <button onClick={() => { ocrInputRef.current?.click(); setShowProduceMenu(false); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-orange-500 hover:bg-white/5 border-b border-white/5">Ink to Text Converter</button>
                           <button onClick={() => { const b = new Blob([activeChapter.content], { type: 'text/plain' }); const u = URL.createObjectURL(b); const l = document.createElement('a'); l.href = u; l.download = "sheet.docs"; l.click(); setShowProduceMenu(false); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-500 hover:bg-white/5 border-b border-white/5">Export .docs</button>
-                          <button onClick={() => { alert("Generating high-fidelity .Wav export of spoken narrative..."); setShowProduceMenu(false); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-cyan-400 hover:bg-white/5 border-b border-white/5">.Wav Export</button>
+                          <button onClick={() => { alert("Generating high-fidelity .Wav export..."); setShowProduceMenu(false); }} className="w-full p-4 text-left text-[9px] font-black uppercase tracking-widest text-cyan-400 hover:bg-white/5">.Wav Export</button>
                         </div>
                       )}
                    </div>
