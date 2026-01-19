@@ -9,6 +9,13 @@ const THEMES = [
   { id: 'emerald', name: 'Emerald (Growth)', color: '#2ecc71' }
 ];
 
+const FONT_PAIRINGS = [
+  { name: 'Classic', desc: 'Serif titles with classic body text.' },
+  { name: 'Modern', desc: 'Bold serif titles with clean sans-serif body.' },
+  { name: 'Typewriter', desc: 'Industrial monospace for raw drafts.' },
+  { name: 'Manuscript', desc: 'Lightweight italic serif for flow.' },
+];
+
 const WrapperInfo: React.FC = () => {
   const [profile, setProfile] = useState(() => {
     const saved = localStorage.getItem('aca_author_profile');
@@ -19,7 +26,8 @@ const WrapperInfo: React.FC = () => {
       motivation: 'Personal Legacy',
       customContext: '',
       showTooltips: true,
-      theme: 'amber'
+      theme: 'amber',
+      fontIndex: 0
     };
   });
 
@@ -29,7 +37,7 @@ const WrapperInfo: React.FC = () => {
   const saveProfile = () => {
     localStorage.setItem('aca_author_profile', JSON.stringify(profile));
     
-    // Apply theme globally to document and body
+    // Apply theme globally
     document.documentElement.className = profile.theme !== 'amber' ? `theme-${profile.theme}` : '';
     document.body.className = profile.theme !== 'amber' ? `theme-${profile.theme}` : '';
     
@@ -111,6 +119,23 @@ URL: ACAPTIVEAUDIENCE.COM
                      >
                         <div className="w-8 h-8 rounded-full shadow-lg" style={{ backgroundColor: theme.color }}></div>
                         <span className="text-[8px] font-black uppercase tracking-widest text-gray-500">{theme.name}</span>
+                     </button>
+                   ))}
+                </div>
+              </div>
+
+              {/* Workspace Typography selector */}
+              <div className="space-y-6">
+                <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Workspace Typography</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                   {FONT_PAIRINGS.map((font, idx) => (
+                     <button 
+                       key={font.name}
+                       onClick={() => setProfile({...profile, fontIndex: idx})}
+                       className={`p-6 border transition-all rounded-sm flex flex-col items-center text-center gap-2 ${profile.fontIndex === idx ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-white/5 hover:border-white/20'}`}
+                     >
+                        <span className="text-xl font-serif italic text-white">{font.name}</span>
+                        <span className="text-[7px] font-bold uppercase tracking-widest text-gray-600">{font.desc}</span>
                      </button>
                    ))}
                 </div>
