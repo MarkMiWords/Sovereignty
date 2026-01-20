@@ -9,6 +9,18 @@ import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Story', 'Sad Story', 'Tragic Story', 'Life Story'];
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
 
+const PREMADE_PROMPTS = [
+  "Tell Wrap more about myself",
+  "Understand how to use Wrap",
+  "Summarise my sheet",
+  "Suggest a title",
+  "Get through a writers block",
+  "Brainstorm ideas",
+  "Research a subject",
+  "Reach for support",
+  "Access Support"
+];
+
 const DEFAULT_CHAPTER: Chapter = { id: '1', title: "", content: '', order: 0, media: [], subChapters: [] };
 
 const AuthorBuilder: React.FC = () => {
@@ -33,7 +45,7 @@ const AuthorBuilder: React.FC = () => {
   const [partnerInput, setPartnerInput] = useState('');
   const [isPartnerLoading, setIsPartnerLoading] = useState(false);
   const [isSoaping, setIsSoaping] = useState(false);
-  const [showPartnerIntel, setShowPartnerIntel] = useState(false);
+  const [showPrompts, setShowPrompts] = useState(false);
   
   // Voice & Cloner State
   const [isCloning, setIsCloning] = useState(false);
@@ -105,6 +117,7 @@ const AuthorBuilder: React.FC = () => {
     if (!finalMsg || isPartnerLoading) return;
     
     setPartnerInput('');
+    setShowPrompts(false);
     setMessages(prev => [...prev, { role: 'user', content: finalMsg }]);
     setIsPartnerLoading(true);
     
@@ -151,10 +164,9 @@ const AuthorBuilder: React.FC = () => {
         }
         return prev + 1;
       });
-    }, 300); // ~30 second simulation
+    }, 300); 
   };
 
-  // --- Dictation Logic ---
   const startDictation = async (target: 'sheet' | 'partner') => {
     if (isDictating) { stopDictation(); return; }
     
@@ -199,7 +211,7 @@ const AuthorBuilder: React.FC = () => {
         config: {
           responseModalities: [Modality.AUDIO],
           inputAudioTranscription: {},
-          systemInstruction: "You are an invisible transcription engine. Just transcribe the user's spoken words accurately. Do not reply with audio."
+          systemInstruction: "You are an invisible transcription engine. Transcribe accurately."
         }
       });
       sessionRef.current = await sessionPromise;
@@ -219,11 +231,8 @@ const AuthorBuilder: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden">
       
-      {/* LHS Panel: Registry */}
-      <aside 
-        style={{ width: `${navWidth}px` }}
-        className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20"
-      >
+      {/* LHS Panel */}
+      <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20">
         <div className="px-8 mb-6">
            <button onClick={handleNewSheet} className="w-full py-3 bg-orange-500 text-white text-[9px] font-black uppercase tracking-[0.4em] hover:bg-orange-600 transition-all shadow-xl rounded-sm">
              + New Sheet
@@ -254,16 +263,16 @@ const AuthorBuilder: React.FC = () => {
 
       <main className="flex-grow flex flex-col relative overflow-hidden bg-[#020202]">
         
-        {/* WRAP BAR */}
+        {/* WRAP BAR (The Core Ignition Point) */}
         <div className="shrink-0 h-24 border-b border-white/10 bg-black flex items-stretch">
-            {/* Write (Amber) */}
-            <div className="flex-1 group/wrap relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_40px_rgba(230,126,34,0.3)] transition-all">
+            {/* Write */}
+            <div className="flex-1 group-write group/write relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_40px_rgba(230,126,34,0.3)] transition-all">
                <div className="h-full flex flex-col items-center justify-center">
-                  <span className="text-[14px] font-black text-gray-700 group-hover:neon-amber transition-all tracking-[0.3em]">
+                  <span className="text-[14px] font-black text-gray-700 tracking-[0.3em] uppercase transition-all duration-300">
                     <span className="text-2xl">W</span>rite
                   </span>
                </div>
-               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-orange-500 shadow-2xl z-[100] opacity-0 invisible group-hover/wrap:opacity-100 group-hover/wrap:visible translate-y-2 group-hover/wrap:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
+               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-orange-500 shadow-2xl z-[100] opacity-0 invisible group-hover/write:opacity-100 group-hover/write:visible translate-y-2 group-hover/write:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <button onClick={() => fileInputRef.current?.click()} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-orange-500 hover:bg-white/5 border-b border-white/5 transition-colors">Import Docs</button>
                   <button onClick={() => startDictation('sheet')} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${dictationTarget === 'sheet' ? 'text-orange-500 animate-pulse bg-orange-500/5' : 'text-white/40 hover:text-orange-500 hover:bg-white/5'}`}>
                     {dictationTarget === 'sheet' ? 'Recording...' : 'Dictation'}
@@ -273,14 +282,14 @@ const AuthorBuilder: React.FC = () => {
                </div>
             </div>
 
-            {/* Revise (Red Glow Re-established) */}
-            <div className="flex-1 group/wrap relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_60px_rgba(192,57,43,0.5)] transition-all">
+            {/* Revise */}
+            <div className="flex-1 group-revise group/revise relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_50px_rgba(192,57,43,0.4)] transition-all">
                <div className="h-full flex flex-col items-center justify-center">
-                  <span className="text-[14px] font-black text-gray-700 group-hover:neon-red transition-all tracking-[0.3em]">
+                  <span className="text-[14px] font-black text-gray-700 tracking-[0.3em] uppercase transition-all duration-300">
                     <span className="text-2xl">R</span>evise
                   </span>
                </div>
-               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-red-600 shadow-2xl z-[100] opacity-0 invisible group-hover/wrap:opacity-100 group-hover/wrap:visible translate-y-2 group-hover/wrap:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
+               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-red-600 shadow-2xl z-[100] opacity-0 invisible group-hover/revise:opacity-100 group-hover/revise:visible translate-y-2 group-hover/revise:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <button onClick={() => handleSoap('rinse')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Rinse</button>
                   <button onClick={() => handleSoap('wash')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 border-b border-white/5 transition-colors">Wash</button>
                   <button onClick={() => handleSoap('scrub')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Scrub</button>
@@ -288,14 +297,14 @@ const AuthorBuilder: React.FC = () => {
                </div>
             </div>
 
-            {/* Articulate (Blue) */}
-            <div className="flex-1 group/wrap relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_40px_rgba(41,128,185,0.4)] transition-all">
+            {/* Articulate */}
+            <div className="flex-1 group-articulate group/articulate relative border-r border-white/5 cursor-pointer hover:shadow-[inset_0_0_40px_rgba(41,128,185,0.4)] transition-all">
                <div className="h-full flex flex-col items-center justify-center">
-                  <span className="text-[14px] font-black text-gray-700 group-hover:neon-blue transition-all tracking-[0.3em]">
+                  <span className="text-[14px] font-black text-gray-700 tracking-[0.3em] uppercase transition-all duration-300">
                     <span className="text-2xl">A</span>rticulate
                   </span>
                </div>
-               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-blue-500 shadow-2xl z-[100] opacity-0 invisible group-hover/wrap:opacity-100 group-hover/wrap:visible translate-y-2 group-hover/wrap:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
+               <div className="absolute top-full left-0 w-64 bg-[#0a0a0a] border border-blue-500 shadow-2xl z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <button onClick={startVoiceClone} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 border-b border-white/5 transition-colors">Clone Voice</button>
                   <button onClick={() => {}} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-blue-400 hover:bg-white/5 border-b border-white/5 transition-colors">Gender</button>
                   <button onClick={() => {}} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-blue-400 hover:bg-white/5 border-b border-white/5 transition-colors">
@@ -305,14 +314,14 @@ const AuthorBuilder: React.FC = () => {
                </div>
             </div>
 
-            {/* Produce (Green Glow Re-established) */}
-            <div className="flex-1 group/wrap relative cursor-pointer hover:shadow-[inset_0_0_40px_rgba(39,174,96,0.3)] transition-all">
+            {/* Produce */}
+            <div className="flex-1 group-produce group/produce relative cursor-pointer hover:shadow-[inset_0_0_40px_rgba(39,174,96,0.3)] transition-all">
                <div className="h-full flex flex-col items-center justify-center">
-                  <span className="text-[14px] font-black text-gray-700 group-hover:neon-green transition-all tracking-[0.3em]">
+                  <span className="text-[14px] font-black text-gray-700 tracking-[0.3em] uppercase transition-all duration-300">
                     <span className="text-2xl">P</span>roduce
                   </span>
                </div>
-               <div className="absolute top-full right-0 w-64 bg-[#0a0a0a] border border-green-500 shadow-2xl z-[100] opacity-0 invisible group-hover/wrap:opacity-100 group-hover/wrap:visible translate-y-2 group-hover/wrap:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
+               <div className="absolute top-full right-0 w-64 bg-[#0a0a0a] border border-green-500 shadow-2xl z-[100] opacity-0 invisible group-hover/produce:opacity-100 group-hover/produce:visible translate-y-2 group-hover/produce:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <button onClick={() => alert("Synchronized.")} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Save Sheet</button>
                   <button onClick={() => handleSoap('sanitise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Sanitise</button>
                   <button onClick={() => handleSoap('expand')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Sheet me to tears</button>
@@ -321,9 +330,9 @@ const AuthorBuilder: React.FC = () => {
             </div>
         </div>
 
-        {/* FORGE EDITOR (Tighter Proportions) */}
+        {/* FORGE EDITOR (No Vertical Waste) */}
         <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar bg-[#020202]">
-          <div className="py-6 bg-[#030303]/40 border-b border-white/5">
+          <div className="py-4 bg-[#030303]/40 border-b border-white/5">
              <div className="max-w-4xl px-12">
                <h2 className="text-[8px] font-black uppercase tracking-[0.8em] text-gray-900 mb-2">Registry Identifier</h2>
                <input 
@@ -338,7 +347,7 @@ const AuthorBuilder: React.FC = () => {
              </div>
           </div>
 
-          <div className="px-12 py-8 flex flex-col flex-grow">
+          <div className="px-12 py-6 flex flex-col flex-grow">
             <div className="max-w-4xl w-full flex flex-col flex-grow">
                <textarea 
                  ref={contentInputRef}
@@ -357,7 +366,7 @@ const AuthorBuilder: React.FC = () => {
               <span>Context: {region}</span>
               <span>Style: {style}</span>
            </div>
-           <span>Forge v5.8 Stabilized</span>
+           <span>Forge v6.5 Ignition</span>
         </div>
       </main>
 
@@ -394,7 +403,7 @@ const AuthorBuilder: React.FC = () => {
                 </div>
              </div>
            ))}
-           {isPartnerLoading && <div className="text-[9px] text-orange-500 animate-pulse uppercase tracking-[0.6em] px-8">Synching Response...</div>}
+           {isPartnerLoading && <div className="text-[9px] text-orange-500 animate-pulse uppercase tracking-[0.6em] px-8">Engaging...</div>}
         </div>
 
         <form onSubmit={handlePartnerChat} className="p-10 bg-black border-t border-white/10 space-y-4">
@@ -404,15 +413,40 @@ const AuthorBuilder: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
               </button>
             </div>
-            <button type="submit" disabled={isPartnerLoading || !partnerInput.trim()} className="w-full py-4 bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.5em] rounded-sm hover:bg-orange-600 transition-all shadow-2xl disabled:opacity-30">
-              {isPartnerLoading ? 'Engaging...' : 'Shoot it over'}
-            </button>
+            
+            <div className="flex gap-2 relative">
+              <button type="submit" disabled={isPartnerLoading || !partnerInput.trim()} className="flex-grow py-4 bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.5em] rounded-sm hover:bg-orange-600 transition-all shadow-2xl disabled:opacity-30">
+                {isPartnerLoading ? 'Engaging...' : 'Shoot it over'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowPrompts(!showPrompts)}
+                className={`w-14 bg-white/5 border border-white/10 text-gray-600 hover:text-orange-500 flex items-center justify-center transition-all rounded-sm ${showPrompts ? 'text-orange-500 bg-orange-500/5' : ''}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+              </button>
+
+              {showPrompts && (
+                <div className="absolute bottom-full right-0 mb-4 w-72 bg-[#0a0a0a] border border-orange-500 shadow-2xl z-[250] rounded-sm overflow-hidden animate-fade-in">
+                   {PREMADE_PROMPTS.map((prompt) => (
+                     <button 
+                       key={prompt}
+                       type="button"
+                       onClick={() => handlePartnerChat(undefined, prompt)}
+                       className="w-full text-left px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-orange-500 hover:bg-white/5 border-b border-white/5 transition-all last:border-0"
+                     >
+                       {prompt}
+                     </button>
+                   ))}
+                </div>
+              )}
+            </div>
          </form>
       </aside>
 
       {/* Voice Cloning Studio Modal */}
       {isCloning && (
-        <div className="fixed inset-0 z-[200] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-6 animate-fade-in">
+        <div className="fixed inset-0 z-[300] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-6 animate-fade-in">
            <div className="max-w-2xl w-full text-center space-y-12">
               <div className="space-y-4">
                  <span className="text-blue-400 tracking-[1em] uppercase text-[10px] font-black block">Acoustic Forge</span>
@@ -421,7 +455,7 @@ const AuthorBuilder: React.FC = () => {
               </div>
 
               <div className="p-10 bg-white/[0.02] border border-blue-500/20 rounded-sm text-2xl font-serif italic text-gray-400 leading-relaxed shadow-inner">
-                 "I am a sovereign author. My voice is my legacy. I reclaim the narrative and build the bridge between the system and the world. Every word I speak is an evidence of life."
+                 "I am a sovereign author. My voice is my legacy. I reclaim the narrative and build the bridge between the system and the world."
               </div>
 
               <div className="relative pt-12">
@@ -430,14 +464,14 @@ const AuthorBuilder: React.FC = () => {
                  </div>
                  <div className="flex justify-between mt-4 text-[9px] font-black uppercase tracking-widest text-gray-600">
                     <span>Capturing Frequencies...</span>
-                    <span>{cloneProgress}% Complete</span>
+                    <span>{cloneProgress}%</span>
                  </div>
               </div>
 
               {cloneProgress === 0 ? (
                 <button onClick={startVoiceClone} className="px-16 py-6 bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-blue-600 transition-all rounded-sm">Begin Capture</button>
               ) : cloneProgress === 100 ? (
-                <div className="text-blue-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Signature Secured. Initializing "My Voice" Profile...</div>
+                <div className="text-blue-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Signature Secured.</div>
               ) : (
                 <div className="text-blue-400 animate-pulse text-[10px] font-black uppercase tracking-widest">Speaking... Keep going...</div>
               )}
@@ -452,10 +486,12 @@ const AuthorBuilder: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
-        .neon-amber { color: #e67e22; text-shadow: 0 0 10px #e67e22, 0 0 20px #e67e22; }
-        .neon-red { color: #c0392b; text-shadow: 0 0 10px #c0392b, 0 0 25px #c0392b; }
-        .neon-blue { color: #2980b9; text-shadow: 0 0 10px #2980b9, 0 0 20px #2980b9; }
-        .neon-green { color: #27ae60; text-shadow: 0 0 10px #27ae60, 0 0 20px #27ae60; }
+
+        /* Industrial Ignition Selectors */
+        .group-write:hover span { color: #e67e22 !important; text-shadow: 0 0 15px #e67e22, 0 0 30px rgba(230, 126, 34, 0.4); }
+        .group-revise:hover span { color: #c0392b !important; text-shadow: 0 0 15px #c0392b, 0 0 30px rgba(192, 57, 43, 0.4); }
+        .group-articulate:hover span { color: #2980b9 !important; text-shadow: 0 0 15px #2980b9, 0 0 30px rgba(41, 128, 185, 0.4); }
+        .group-produce:hover span { color: #27ae60 !important; text-shadow: 0 0 15px #27ae60, 0 0 30px rgba(39, 174, 96, 0.4); }
       `}</style>
     </div>
   );
