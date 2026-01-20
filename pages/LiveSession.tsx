@@ -5,6 +5,15 @@ import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { writeJson, readJson } from '../utils/safeStorage';
 import { Chapter } from '../types';
 
+// PCM Encoding Utility
+function encode(bytes: Uint8Array) {
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 const LiveSession: React.FC = () => {
   const navigate = useNavigate();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -42,12 +51,6 @@ const LiveSession: React.FC = () => {
     return buffer;
   };
 
-  const encode = (bytes: Uint8Array) => {
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
-  };
-
   const createBlob = (data: Float32Array) => {
     const int16 = new Int16Array(data.length);
     for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
@@ -69,6 +72,10 @@ const LiveSession: React.FC = () => {
       audioContextRef.current = inputCtx;
       outputAudioContextRef.current = outputCtx;
 
+      // CRITICAL: Resume context for browser compliance
+      if (inputCtx.state === 'suspended') await inputCtx.resume();
+      if (outputCtx.state === 'suspended') await outputCtx.resume();
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const sessionPromise = ai.live.connect({
@@ -81,7 +88,6 @@ const LiveSession: React.FC = () => {
             const source = inputCtx.createMediaStreamSource(stream);
             const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
-              if (inputCtx.state === 'suspended') inputCtx.resume();
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = createBlob(inputData);
               sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
@@ -90,10 +96,8 @@ const LiveSession: React.FC = () => {
             scriptProcessor.connect(inputCtx.destination);
           },
           onmessage: async (msg: LiveServerMessage) => {
-            // Handle Audio Playback
             const base64Audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio) {
-              if (outputCtx.state === 'suspended') outputCtx.resume();
               const start = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
               const buffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
               const source = outputCtx.createBufferSource();
@@ -105,7 +109,6 @@ const LiveSession: React.FC = () => {
               sourcesRef.current.add(source);
             }
 
-            // Handle Transcriptions
             if (msg.serverContent?.inputTranscription) {
               setTranscription(prev => prev + ' ' + msg.serverContent!.inputTranscription!.text);
             }
@@ -126,15 +129,16 @@ const LiveSession: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
           },
-          systemInstruction: "G'day mate. You are a warm, helpful Australian partner. Speak with a natural, friendly Australian accent. Your goal is to entice the user to 'tell us a yarn'. Be encouraging, listen deeply, and draw out their carceral story. Keep your responses concise so they can do the talking. Mention that you're ready to scribe their story into the Registry.",
+          systemInstruction: "G'day mate. You are a warm, helpful Australian partner. Your goal is to scribe their carceral story. Keep your responses concise so they can do the talking. Mention that you're ready to scribe their story into the Registry.",
         },
       });
 
       sessionRef.current = await sessionPromise;
     } catch (err) {
-      console.error(err);
+      console.error("Live Session Start Failure:", err);
       setIsConnecting(false);
       setStatus('Link Failed');
+      alert("Microphone connection failed. Please ensure permissions are granted in your browser settings.");
     }
   };
 
@@ -149,7 +153,7 @@ const LiveSession: React.FC = () => {
       try { outputAudioContextRef.current.close(); } catch (e) {}
     }
     setIsActive(false);
-    setStatus('Link Severed');
+    setStatus('Standby');
     sessionRef.current = null;
     audioContextRef.current = null;
     outputAudioContextRef.current = null;
@@ -157,10 +161,7 @@ const LiveSession: React.FC = () => {
 
   const handleExport = () => {
     if (!transcription.trim()) return;
-    
-    // Read existing sheets to prevent overwrite
     const currentSheets = readJson<Chapter[]>('wrap_sheets_v4', []);
-    
     const newSheet: Chapter = {
       id: `live-${Date.now()}`,
       title: `Live Yarn - ${new Date().toLocaleDateString()}`,
@@ -169,11 +170,7 @@ const LiveSession: React.FC = () => {
       media: [],
       subChapters: []
     };
-
-    // Commit to persistent storage
     writeJson('wrap_sheets_v4', [newSheet, ...currentSheets]);
-    
-    // Give visual feedback before navigation
     setStatus('Export Success');
     setTimeout(() => {
       stopSession();
@@ -184,11 +181,11 @@ const LiveSession: React.FC = () => {
   return (
     <div className="bg-[#050505] min-h-screen text-white flex flex-col">
       <header className="p-10 border-b border-white/5 flex justify-between items-center bg-black/40">
-        <button onClick={() => navigate('/author-builder')} className="text-orange-500 text-[10px] font-black uppercase tracking-[0.4em] hover:underline">← Back to Forge</button>
+        <button onClick={() => navigate('/author-builder')} className="text-[var(--accent)] text-[10px] font-black uppercase tracking-[0.4em] hover:underline">← Back to Forge</button>
         <div className="flex items-center gap-6">
            <div className="text-right">
               <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Acoustic Status</p>
-              <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-green-500' : 'text-orange-500'}`}>{status}</p>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-green-500' : 'text-[var(--accent)]'}`}>{status}</p>
            </div>
            {isActive && <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]"></div>}
         </div>
@@ -198,13 +195,13 @@ const LiveSession: React.FC = () => {
         {!isActive && !isConnecting && (
           <div className="text-center space-y-12 animate-fade-in">
              <div className="space-y-4">
-                <span className="text-orange-500 tracking-[0.8em] uppercase text-[10px] font-black block">Live Link v2.5</span>
-                <h1 className="text-6xl md:text-8xl font-serif font-black italic text-white tracking-tighter leading-none">Ready to <br/><span className="text-orange-500">tell us a yarn?</span></h1>
+                <span className="tracking-[0.8em] uppercase text-[10px] font-black block" style={{ color: 'var(--accent)' }}>Live Link v2.5</span>
+                <h1 className="text-6xl md:text-8xl font-serif font-black italic text-white tracking-tighter leading-none">Ready to <br/><span style={{ color: 'var(--accent)' }}>tell us a yarn?</span></h1>
                 <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-xl mx-auto">"Pull up a stump. I'm here to listen. Your story is ready to be scribed."</p>
              </div>
              <button 
                onClick={startSession}
-               className="px-20 py-8 bg-orange-500 text-white text-[12px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-orange-600 transition-all rounded-sm glow-orange"
+               className="px-20 py-8 text-white text-[12px] font-black uppercase tracking-[0.6em] shadow-2xl transition-all rounded-sm animate-living-amber-bg glow-accent"
              >
                Initialize Link
              </button>
@@ -213,8 +210,8 @@ const LiveSession: React.FC = () => {
 
         {isConnecting && (
           <div className="flex flex-col items-center gap-8 animate-pulse">
-             <div className="w-24 h-24 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
-             <p className="text-orange-500 text-[10px] font-black uppercase tracking-[0.8em]">Calibrating Frequency...</p>
+             <div className="w-24 h-24 border-2 border-white/10 rounded-full animate-spin" style={{ borderTopColor: 'var(--accent)' }}></div>
+             <p className="text-[10px] font-black uppercase tracking-[0.8em]" style={{ color: 'var(--accent)' }}>Calibrating Frequency...</p>
           </div>
         )}
 
@@ -235,7 +232,7 @@ const LiveSession: React.FC = () => {
 
              <div className="flex-grow min-h-[400px] p-12 bg-white/[0.02] border border-white/5 rounded-sm font-serif italic text-3xl leading-relaxed text-gray-300 custom-scrollbar overflow-y-auto">
                 {transcription || "Listening for your truth..."}
-                {isActive && <span className="inline-block w-2 h-8 bg-orange-500 ml-4 animate-pulse align-middle"></span>}
+                {isActive && <span className="inline-block w-2 h-8 bg-[var(--accent)] ml-4 animate-pulse align-middle"></span>}
              </div>
 
              <div className="flex justify-center gap-6">
@@ -248,7 +245,7 @@ const LiveSession: React.FC = () => {
                 <button 
                   onClick={handleExport}
                   disabled={wordCount === 0}
-                  className="px-12 py-5 bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.5em] shadow-xl hover:bg-orange-600 transition-all rounded-sm disabled:opacity-20"
+                  className="px-12 py-5 text-white text-[10px] font-black uppercase tracking-[0.5em] shadow-xl transition-all rounded-sm disabled:opacity-20 animate-living-amber-bg"
                 >
                   Export to Forge
                 </button>
@@ -262,7 +259,7 @@ const LiveSession: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 0.8s ease-out forwards; }
-        .glow-orange { box-shadow: 0 0 30px rgba(230, 126, 34, 0.3); }
+        .glow-accent { box-shadow: 0 0 30px var(--accent-glow); }
       `}</style>
     </div>
   );

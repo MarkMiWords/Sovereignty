@@ -7,7 +7,8 @@
     <title>A Captive Audience | Sovereign Forge</title>
     
     <script>
-      window.process = { env: { API_KEY: "" } };
+      // The API key is handled externally. Manual overrides here can break the Sovereign Link.
+      window.process = window.process || { env: {} };
       
       // IMMEDIATE THEME INJECTOR (Prevents refresh flash)
       (function() {
