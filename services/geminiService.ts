@@ -3,10 +3,12 @@ import { Message, ManuscriptReport, MasteringGoal } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 import { devLog } from "../components/DevConsole";
 
-// Safe Environment Getter
-const getSafeEnv = (key: string) => {
+// Ultra-safe API Key Getter
+const getSafeApiKey = () => {
   try {
-    return (process?.env && process.env[key]) || (window as any).process?.env?.[key] || "";
+    // Check various common injection points
+    const key = process?.env?.API_KEY || (window as any).process?.env?.API_KEY || "";
+    return key;
   } catch (e) {
     return "";
   }
@@ -26,8 +28,8 @@ async function callSovereignAPI(endpoint: string, body: any) {
   if (isDirect) {
     devLog('request', `[DIRECT] Calling ${endpoint}...`);
     try {
-      const apiKey = getSafeEnv('API_KEY');
-      if (!apiKey) throw new Error("API Key missing in environment.");
+      const apiKey = getSafeApiKey();
+      if (!apiKey) throw new Error("API Key missing. Select one via dev tools.");
       
       const ai = new GoogleGenAI({ apiKey });
       
@@ -65,13 +67,14 @@ async function callSovereignAPI(endpoint: string, body: any) {
           model: 'gemini-3-flash-preview',
           contents: [{ role: 'user', parts: [{ text }] }],
           config: {
-            systemInstruction: `You are WRAPPER. Mission: Sovereignty of carceral voice. Level: ${level}. Style: ${style}. Region: ${region}. Preserve grit.`
+            systemInstruction: `You are WRAPPER. Level: ${level}. Style: ${style}. Region: ${region}. Preserve grit.`
           }
         });
         return { text: response.text };
       }
       
-      // ... Other Direct Implementations
+      // Fallback for missing endpoints in direct mode
+      return { text: "Endpoint not yet implemented in direct mode." };
       
     } catch (err: any) {
       devLog('error', `Direct Link Exception: ${err.message}`);
@@ -79,6 +82,7 @@ async function callSovereignAPI(endpoint: string, body: any) {
     }
   }
 
+  // STANDARD SERVER PATHWAY
   const response = await fetch(`/api/${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

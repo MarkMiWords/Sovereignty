@@ -8,21 +8,31 @@
     
     <script>
         /**
-         * EMERGENCY BOOT PROTOCOL
-         * Runs before everything else to prevent ReferenceErrors.
+         * BOOT GUARD & RECOVERY PROTOCOL
+         * This script is the "Black Box" that prevents the White Screen.
          */
-        window.process = { env: { API_KEY: "" } };
         
-        // 502 Subdomain Safety: If on www and it's acting up, notify
+        // 1. Host Sanitizer: If the browser is stuck on the broken www host, try to redirect
         if (window.location.hostname.startsWith('www.')) {
-            console.warn("Subdomain mismatch detected. Using naked domain for stability.");
+            console.error("502 PROTECTION: Redirecting from broken subdomain to naked origin.");
+            window.location.href = window.location.href.replace('www.', '');
         }
 
+        // 2. Global Variable Polyfill (Fixes "process is not defined" crashes)
+        window.process = { env: { API_KEY: "" } };
+
+        // 3. Error Boundary for the Browser
         window.onerror = function(msg, url, line, col, error) {
-            const recovery = document.getElementById('emergency-recovery');
-            if (recovery) {
-                recovery.style.display = 'flex';
-                document.getElementById('error-log').innerText = msg;
+            console.error("CRITICAL BOOT FAILURE:", msg);
+            const recoveryUI = document.getElementById('emergency-recovery');
+            if (recoveryUI) {
+                recoveryUI.style.display = 'flex';
+                document.getElementById('error-log').innerText = msg + " at " + line + ":" + col;
+            }
+            // If the error looks like storage corruption, clear the "poison"
+            if (msg.toLowerCase().includes("json") || msg.toLowerCase().includes("parse")) {
+                localStorage.removeItem('wrap_sheets_v4');
+                localStorage.removeItem('aca_author_profile');
             }
             return false;
         };
@@ -38,7 +48,7 @@
             position: fixed;
             inset: 0;
             background: #0a0a0a;
-            z-index: 9999;
+            z-index: 99999;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -54,6 +64,8 @@
             cursor: pointer;
             margin-top: 2rem;
             font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
         }
     </style>
 
@@ -72,13 +84,12 @@
 </script>
 </head>
 <body>
-    <!-- If JS fails to mount the app, this will be visible if window.onerror fires -->
     <div id="emergency-recovery">
         <h1 style="color: #e67e22; font-size: 2rem; margin-bottom: 1rem;">SYSTEM RECOVERY</h1>
-        <p>The application failed to initialize (White Screen Prevented).</p>
-        <code id="error-log" style="color: #555; background: #111; padding: 1rem; display: block; margin: 1rem 0;">No logs captured.</code>
-        <button class="recovery-btn" onclick="localStorage.clear(); window.location.reload();">FORCE HARD RESET (CLEAR CACHE)</button>
-        <p style="margin-top: 2rem; color: #444; font-size: 0.8rem;">Check your 502 Bad Gateway status at the DNS level.</p>
+        <p>A runtime error prevented the application from loading.</p>
+        <code id="error-log" style="color: #555; background: #111; padding: 1rem; display: block; margin: 1rem 0; font-size: 10px;"></code>
+        <button class="recovery-btn" onclick="localStorage.clear(); window.location.reload();">HARD RESET (CLEAR CACHE)</button>
+        <p style="margin-top: 2rem; color: #333; font-size: 0.8rem;">Check deployment logs for 502 errors.</p>
     </div>
 
     <div id="root"></div>
