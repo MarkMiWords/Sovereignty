@@ -3,8 +3,8 @@ import { Message, ManuscriptReport, MasteringGoal } from "../types";
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 /**
- * SOVEREIGN AI BRIDGE v6.6
- * Native AI Studio Integration
+ * SOVEREIGN AI BRIDGE v7.5
+ * Native AI Studio Integration - Polish Suite Calibration
  */
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
@@ -26,17 +26,26 @@ export const smartSoap = async (text: string, level: string, style: string, regi
       instruction = `You are the SCRUB agent. Fix spelling/grammar and perform HEAVY LIFTING of the prose. Elevate the narrative structure and vocabulary for maximum impact while preserving the emotional truth. Context: ${region}. Style: ${style}.`;
       break;
     case 'fact_check':
-      instruction = `You are the FACT CHECKER. Analyze the provided text for legal claims, mentions of specific laws, court cases, or factual statements. Use Google Search to verify if these claims are accurate. Provide a list of confirmations or necessary corrections at the end of the text. Context: ${region}.`;
+      instruction = `You are the FACT CHECKER. Analyze the provided text for legal claims, mentions of specific laws, court cases, or factual statements. Use Google Search to verify if these claims are accurate. Context: ${region}.`;
       useTools = true;
       break;
     case 'sanitise':
       instruction = `You are the SANITISE agent. Your ONLY job is privacy. Identify all real names of people and specific locations. Act as a Name Generator and replace them with realistic fictional aliases that fit the ${region} context. DO NOT change grammar or prose. Focus exclusively on protecting identities. Output the modified text.`;
       break;
-    case 'polish_turd':
-      instruction = `You are the High-Intensity Polisher. Take this poorly written or raw carceral text and transform it into a masterpiece of grit and prose without losing the author's soul. Preserve dialetic authenticity while maximizing structural impact.`;
+    case 'polish_story':
+      instruction = `POLISH THE STORY (Structure & Pacing). Focus on the 'bones'. Strengthen character arcs (protagonist growth/mistakes visible). Tighten dialogue: use it ONLY to reveal character or create tension—remove small talk. Balance key turning points. Maintain the style: ${style} and context: ${region}.`;
       break;
-    case 'expand':
-      instruction = `You are the Expansion Forge. Drastically expand this narrative by exploring the sensory details of the environment, the internal monologue of the author, and the weight of the context. Style: ${style}. Region: ${region}. Make it visceral.`;
+    case 'polish_poetry':
+      instruction = `POLISH THE POETRY (Sound & Form). Precision and syllable weight are critical. Mark and smooth rhythm breaks. Condense language: every word must earn its place. Replace passive verbs with evocative choices (excoriate, demolish, etc). Maintain carceral grit.`;
+      break;
+    case 'polish_imagery':
+      instruction = `POLISH THE IMAGERY (Sensory Depth). Transform flat descriptions into immersive experiences. Use all senses: smell, taste, texture. Replace vague phrases with concrete details. SHOW, DON'T TELL. Use strategic, non-cliché metaphors. Context: ${region}.`;
+      break;
+    case 'polish_subtext':
+      instruction = `POLISH SUBTEXT & THEME. Transform simple narrative into lasting resonance. Layer dialogue so characters say one thing but mean another. Identify recurring images (motifs) and refine them into symbols. Ensure the theme (betrayal, hope, etc) is demonstrated through flaws and resolution.`;
+      break;
+    case 'polish_turd':
+      instruction = `POLISH A TURD (Deep Tissue Revision). The draft is fundamentally weak; perform a total transformation to find the hidden core. Move beyond proofreading into structural reconstruction. Find the story's soul and rebuild it with mastery and grit. Context: ${region}. Style: ${style}.`;
       break;
     case 'dogg_me':
       instruction = `You are the Doggerel Forge. Filter this narrative into a rhythmic, raw, industrial poem or rhyming prose. Maintain the carceral grit and regional slang.`;

@@ -122,6 +122,7 @@ const AuthorBuilder: React.FC = () => {
 
   const handleSaveToVault = () => {
     const vault = readJson<VaultStorage>('sovereign_vault', { sheets: [], books: [], ai: [], audits: [] });
+    const currentVaultSheets = vault.sheets || [];
     const newVaultSheets: VaultSheet[] = chapters.map(c => ({
       id: `vault-${c.id}-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -222,6 +223,7 @@ const AuthorBuilder: React.FC = () => {
           clearInterval(interval);
           setHasClonedVoice(true);
           localStorage.setItem('aca_voice_cloned', 'true');
+          setAccent('Cloned'); // Auto-select clone once done
           setTimeout(() => setIsCloning(false), 1000);
           return 100;
         }
@@ -388,7 +390,7 @@ const AuthorBuilder: React.FC = () => {
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Accents</p>
                         <div className="flex flex-col gap-1">
                            {hasClonedVoice && (
-                             <button onClick={() => setAccent('Cloned')} className={`w-full py-2 text-[7px] font-black uppercase rounded-sm border ${accent === 'Cloned' ? 'bg-blue-500 border-blue-500 text-white' : 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10'}`}>My Own Clone</button>
+                             <button onClick={() => setAccent('Cloned')} className={`w-full py-2 text-[7px] font-black uppercase rounded-sm border transition-all ${accent === 'Cloned' ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(52,152,219,0.5)]' : 'border-blue-500/30 text-blue-500 hover:bg-blue-500/10'}`}>My Own Clone</button>
                            )}
                            {['Australian', 'English', 'American'].map(a => (
                              <button key={a} onClick={() => setAccent(a)} className={`w-full py-2 text-[7px] font-black uppercase rounded-sm border ${accent === a ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'border-white/5 text-gray-700 hover:text-gray-400'}`}>{a}</button>
@@ -416,10 +418,14 @@ const AuthorBuilder: React.FC = () => {
                   </span>
                </div>
                <div className="absolute top-full right-0 w-64 bg-[#0a0a0a] border border-green-500 shadow-2xl z-[100] opacity-0 invisible group-hover/polish:opacity-100 group-hover/polish:visible translate-y-2 group-hover/polish:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button onClick={handleSaveSheet} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Save Sheet</button>
+                  <button onClick={() => handleSoap('polish_story', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish the story</button>
+                  <button onClick={() => handleSoap('polish_poetry', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish the poetry</button>
+                  <button onClick={() => handleSoap('polish_imagery', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish the Imagery</button>
+                  <button onClick={() => handleSoap('polish_subtext', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish subtext and theme</button>
+                  <button onClick={() => handleSoap('polish_turd', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish a turd</button>
+                  <div className="h-2 bg-white/5"></div>
                   <button onClick={() => handleSoap('sanitise', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Sanitise</button>
-                  <button onClick={() => handleSoap('expand', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Sheet me to tears</button>
-                  <button onClick={() => handleSoap('polish_turd', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-green-500 hover:bg-white/5 transition-colors">Polish a turd</button>
+                  <button onClick={handleSaveSheet} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 transition-colors">Save Sheet</button>
                </div>
             </div>
         </div>
@@ -462,7 +468,7 @@ const AuthorBuilder: React.FC = () => {
               <span>Context: {region}</span>
               <span>Style: {style}</span>
            </div>
-           <span>Forge v7.0 Alchemist</span>
+           <span>Forge v7.5 Alchemist</span>
         </div>
       </main>
 

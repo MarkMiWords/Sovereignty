@@ -20,6 +20,7 @@ import SovereignVault from './pages/SovereignVault';
 import Origin from './pages/Origin';
 import LiveRules from './pages/LiveRules';
 import LiveSession from './pages/LiveSession';
+import Blueprints from './pages/Blueprints';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import BugReportModal from './components/BugReportModal';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
             <Route path="/wrap-it-up" element={<WrapItUp />} />
             <Route path="/live-protocol" element={<LiveRules />} />
             <Route path="/live-link" element={<LiveSession />} />
+            <Route path="/blueprints" element={<Blueprints />} />
           </Routes>
         </main>
         <Footer />

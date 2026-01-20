@@ -44,7 +44,10 @@ const Footer: React.FC = () => {
         </div>
         
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 uppercase tracking-[0.3em] font-black">
-           <p>© 2026 A Captive Audience.</p>
+           <div className="flex items-center gap-6">
+              <p>© 2026 A Captive Audience.</p>
+              <Link to="/blueprints" className="text-[7px] text-gray-900 hover:text-cyan-900 transition-colors uppercase tracking-[0.4em] font-black">Sovereign Blueprints</Link>
+           </div>
            <p className="mt-4 md:mt-0 italic">Mark Mi Words Studio</p>
         </div>
       </div>
