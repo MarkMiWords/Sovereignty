@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
+import Storefront from './pages/Storefront';
 import BookDetails from './pages/BookDetails';
 import PublishedBooks from './pages/PublishedBooks';
 import Narratives from './pages/Narratives';
@@ -58,6 +59,7 @@ const App: React.FC = () => {
         <main className="flex-grow pt-24 relative">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/storefront" element={<Storefront />} />
             <Route path="/published-books" element={<PublishedBooks />} />
             <Route path="/book/:slug" element={<BookDetails />} />
             <Route path="/narratives" element={<Narratives />} />

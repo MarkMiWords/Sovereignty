@@ -43,7 +43,7 @@ const Home: React.FC = () => {
               <span className="relative z-10">MAKE A WRAP SHEET</span>
               <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
             </Link>
-            <Link to="/published-books" className="bg-white/5 hover:bg-white/10 text-white px-20 py-8 font-black tracking-[0.6em] uppercase text-[11px] border border-white/10 backdrop-blur-3xl transition-all hover:border-white/30 rounded-sm">
+            <Link to="/storefront" className="bg-white/5 hover:bg-white/10 text-white px-20 py-8 font-black tracking-[0.6em] uppercase text-[11px] border border-white/10 backdrop-blur-3xl transition-all hover:border-white/30 rounded-sm">
               Explore Storefront
             </Link>
           </div>
