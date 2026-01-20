@@ -76,14 +76,6 @@ const Security: React.FC = () => {
             </div>
             <div className="absolute top-0 right-0 p-10 opacity-5 text-9xl font-serif italic select-none -rotate-12">SHIELD</div>
          </section>
-
-         <section className="text-center pb-20">
-            <h3 className="text-3xl font-serif italic mb-10">Institutional Compliance.</h3>
-            <p className="text-gray-500 font-light max-w-2xl mx-auto mb-12">"A Captive Audience is the world's first digital writing tool designed for incarcerated people with institutional compliance at the core."</p>
-            <div className="flex justify-center gap-8">
-               <a href="mailto:security@markmiwords.com" className="bg-white text-black px-12 py-5 text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-orange-500 hover:text-white transition-all rounded-sm">Consult Security Officer</a>
-            </div>
-         </section>
       </div>
     </div>
   );

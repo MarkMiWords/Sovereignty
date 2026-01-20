@@ -18,24 +18,24 @@ const Blueprints: React.FC = () => {
       title: "The Polish Suite (Block P)",
       items: [
         { 
-          name: "1. Polish the Story", 
-          desc: "Focus on 'bones'. Character arcs must be visible. Dialogue tightened for subtext. Pacing balanced to avoid back-loading. Rule: Emotional detachment required." 
+          name: "1. Polish the Story (Structure & Pacing)", 
+          desc: "Focus on the 'bones' before fine-tuning. Strengthen Character Arcs: Protagonist’s growth/mistakes must be visible. Tighten Dialogue: Remove 'small talk'; use only to reveal character or create tension. Evaluate Pacing: Balance turning points; avoid back-loading endings. Rule: Detach emotionally before editing." 
         },
         { 
-          name: "2. Polish the Poetry", 
-          desc: "Precision and syllable weight. Smooth rhythm breaks. Rule: 'Case Weight'—treat poems like a suitcase with a weight limit. Replace passive verbs with evocative actions." 
+          name: "2. Polish the Poetry (Sound & Form)", 
+          desc: "Precision and syllable weight. Read Aloud: Critical step to find rhythm breaks. Condense Language: Treat poems like a suitcase with a weight limit—every word must earn its place. Replace passive verbs with evocative actions (e.g., 'excoriate' instead of 'is'). structure experimentation required." 
         },
         { 
-          name: "3. Polish the Imagery", 
-          desc: "Sensory Depth. Beyond visual: smell, taste, texture. 'Show, Don't Tell'. Use specific, non-cliché metaphors (e.g. Grief as a stone slab)." 
+          name: "3. Polish the Imagery (Sensory Depth)", 
+          desc: "Transform flat descriptions into immersive experiences. Beyond Visuals: Ground scenes in smell, taste, and texture. Be Specific: Replace 'pie smelled good' with 'scent of warm apples and cinnamon'. Show, Don't Tell: Describe white knuckles and shallow breath rather than just 'terrified'. Use strategic, non-cliché metaphors." 
         },
         { 
           name: "4. Polish Subtext & Theme", 
-          desc: "Resonance layer. Dialogue should mean more than it says. Motif identification and symbol refinement. Demonstration over mention." 
+          desc: "Transforms simple narrative into lasting resonance. Layering Subtext: Characters say one thing but mean another; use body language and unspoken history. Motif & Symbolism: Refine recurring images into symbols (e.g., rain shifting from literal to inner cleansing). Theme Integration: Central message must be demonstrated through character flaws." 
         },
         { 
-          name: "5. Polish a Turd", 
-          desc: "Deep Tissue Revision. Transforming fundamentally weak first drafts by finding the hidden core and performing structural reconstruction." 
+          name: "5. Polish a Turd (Deep Tissue)", 
+          desc: "Deep Tissue Revision for fundamentally weak drafts. Moving beyond proofreading to find the story's hidden core. If a user clicks this, they are signaling that they don't believe the draft is good and need the AI to rebuild it with intense literary transformation." 
         }
       ]
     },

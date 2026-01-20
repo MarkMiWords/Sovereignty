@@ -1,5 +1,4 @@
 
-// Add missing React import
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Logo from './Logo';
@@ -46,9 +45,11 @@ const Footer: React.FC = () => {
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 uppercase tracking-[0.3em] font-black">
            <div className="flex items-center gap-6">
               <p>© 2026 A Captive Audience.</p>
-              <Link to="/blueprints" className="text-[7px] text-gray-900 hover:text-cyan-900 transition-colors uppercase tracking-[0.4em] font-black">Sovereign Blueprints</Link>
            </div>
-           <p className="mt-4 md:mt-0 italic">Mark Mi Words Studio</p>
+           <div className="flex items-center gap-8">
+              <Link to="/blueprints" className="text-[9px] text-gray-700 hover:text-cyan-500 transition-all uppercase tracking-[0.4em] font-black border-b border-transparent hover:border-cyan-500/30 pb-1">Sovereign Blueprints</Link>
+              <p className="italic">Mark Mi Words Studio</p>
+           </div>
         </div>
       </div>
     </footer>
