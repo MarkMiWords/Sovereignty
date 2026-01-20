@@ -1,0 +1,271 @@
+
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import { writeJson, readJson } from '../utils/safeStorage';
+import { Chapter } from '../types';
+
+const LiveSession: React.FC = () => {
+  const navigate = useNavigate();
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+  const [transcription, setTranscription] = useState('');
+  const [wordCount, setWordCount] = useState(0);
+  const [status, setStatus] = useState('Standby');
+  const sessionRef = useRef<any>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const outputAudioContextRef = useRef<AudioContext | null>(null);
+  const nextStartTimeRef = useRef(0);
+  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+
+  useEffect(() => {
+    setWordCount(transcription.split(/\s+/).filter(Boolean).length);
+  }, [transcription]);
+
+  const decode = (base64: string) => {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+    return bytes;
+  };
+
+  const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+      const channelData = buffer.getChannelData(channel);
+      for (let i = 0; i < frameCount; i++) {
+        channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+      }
+    }
+    return buffer;
+  };
+
+  const encode = (bytes: Uint8Array) => {
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  };
+
+  const createBlob = (data: Float32Array) => {
+    const int16 = new Int16Array(data.length);
+    for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
+    return {
+      data: encode(new Uint8Array(int16.buffer)),
+      mimeType: 'audio/pcm;rate=16000',
+    };
+  };
+
+  const startSession = async () => {
+    if (isActive) return;
+    setIsConnecting(true);
+    setStatus('Linking...');
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+
+    try {
+      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      audioContextRef.current = inputCtx;
+      outputAudioContextRef.current = outputCtx;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      const sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        callbacks: {
+          onopen: () => {
+            setIsActive(true);
+            setIsConnecting(false);
+            setStatus('Acoustic Link Active');
+            const source = inputCtx.createMediaStreamSource(stream);
+            const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
+            scriptProcessor.onaudioprocess = (e) => {
+              if (inputCtx.state === 'suspended') inputCtx.resume();
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcmBlob = createBlob(inputData);
+              sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
+            };
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(inputCtx.destination);
+          },
+          onmessage: async (msg: LiveServerMessage) => {
+            // Handle Audio Playback
+            const base64Audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            if (base64Audio) {
+              if (outputCtx.state === 'suspended') outputCtx.resume();
+              const start = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
+              const buffer = await decodeAudioData(decode(base64Audio), outputCtx, 24000, 1);
+              const source = outputCtx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(outputCtx.destination);
+              source.addEventListener('ended', () => sourcesRef.current.delete(source));
+              source.start(start);
+              nextStartTimeRef.current = start + buffer.duration;
+              sourcesRef.current.add(source);
+            }
+
+            // Handle Transcriptions
+            if (msg.serverContent?.inputTranscription) {
+              setTranscription(prev => prev + ' ' + msg.serverContent!.inputTranscription!.text);
+            }
+          },
+          onclose: () => {
+            console.log('Session closed by peer');
+            setIsActive(false);
+            setStatus('Link Severed');
+          },
+          onerror: (e) => {
+            console.error('Live Link Error:', e);
+            stopSession();
+          },
+        },
+        config: {
+          responseModalities: [Modality.AUDIO],
+          inputAudioTranscription: {},
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+          },
+          systemInstruction: "G'day mate. You are a warm, helpful Australian partner. Speak with a natural, friendly Australian accent. Your goal is to entice the user to 'tell us a yarn'. Be encouraging, listen deeply, and draw out their carceral story. Keep your responses concise so they can do the talking. Mention that you're ready to scribe their story into the Registry.",
+        },
+      });
+
+      sessionRef.current = await sessionPromise;
+    } catch (err) {
+      console.error(err);
+      setIsConnecting(false);
+      setStatus('Link Failed');
+    }
+  };
+
+  const stopSession = () => {
+    if (sessionRef.current) {
+      try { sessionRef.current.close(); } catch (e) {}
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch (e) {}
+    }
+    if (outputAudioContextRef.current) {
+      try { outputAudioContextRef.current.close(); } catch (e) {}
+    }
+    setIsActive(false);
+    setStatus('Link Severed');
+    sessionRef.current = null;
+    audioContextRef.current = null;
+    outputAudioContextRef.current = null;
+  };
+
+  const handleExport = () => {
+    if (!transcription.trim()) return;
+    
+    // Read existing sheets to prevent overwrite
+    const currentSheets = readJson<Chapter[]>('wrap_sheets_v4', []);
+    
+    const newSheet: Chapter = {
+      id: `live-${Date.now()}`,
+      title: `Live Yarn - ${new Date().toLocaleDateString()}`,
+      content: transcription.trim(),
+      order: 0,
+      media: [],
+      subChapters: []
+    };
+
+    // Commit to persistent storage
+    writeJson('wrap_sheets_v4', [newSheet, ...currentSheets]);
+    
+    // Give visual feedback before navigation
+    setStatus('Export Success');
+    setTimeout(() => {
+      stopSession();
+      navigate('/author-builder');
+    }, 500);
+  };
+
+  return (
+    <div className="bg-[#050505] min-h-screen text-white flex flex-col">
+      <header className="p-10 border-b border-white/5 flex justify-between items-center bg-black/40">
+        <button onClick={() => navigate('/author-builder')} className="text-orange-500 text-[10px] font-black uppercase tracking-[0.4em] hover:underline">← Back to Forge</button>
+        <div className="flex items-center gap-6">
+           <div className="text-right">
+              <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Acoustic Status</p>
+              <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-green-500' : 'text-orange-500'}`}>{status}</p>
+           </div>
+           {isActive && <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]"></div>}
+        </div>
+      </header>
+
+      <main className="flex-grow flex flex-col items-center justify-center max-w-5xl mx-auto w-full px-6 py-20 relative">
+        {!isActive && !isConnecting && (
+          <div className="text-center space-y-12 animate-fade-in">
+             <div className="space-y-4">
+                <span className="text-orange-500 tracking-[0.8em] uppercase text-[10px] font-black block">Live Link v2.5</span>
+                <h1 className="text-6xl md:text-8xl font-serif font-black italic text-white tracking-tighter leading-none">Ready to <br/><span className="text-orange-500">tell us a yarn?</span></h1>
+                <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-xl mx-auto">"Pull up a stump. I'm here to listen. Your story is ready to be scribed."</p>
+             </div>
+             <button 
+               onClick={startSession}
+               className="px-20 py-8 bg-orange-500 text-white text-[12px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-orange-600 transition-all rounded-sm glow-orange"
+             >
+               Initialize Link
+             </button>
+          </div>
+        )}
+
+        {isConnecting && (
+          <div className="flex flex-col items-center gap-8 animate-pulse">
+             <div className="w-24 h-24 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin"></div>
+             <p className="text-orange-500 text-[10px] font-black uppercase tracking-[0.8em]">Calibrating Frequency...</p>
+          </div>
+        )}
+
+        {isActive && (
+          <div className="w-full flex flex-col gap-12 animate-fade-in">
+             <div className="flex justify-between items-end border-b border-white/10 pb-6">
+                <div className="space-y-2">
+                   <h2 className="text-4xl font-serif italic text-white">The Live Script</h2>
+                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Recording in progress...</p>
+                </div>
+                <div className="flex gap-12">
+                   <div className="text-right">
+                      <p className="text-[8px] text-gray-700 uppercase font-black tracking-widest">Word Count</p>
+                      <p className={`text-2xl font-serif italic ${wordCount > 1000 ? 'text-red-500' : 'text-white'}`}>{wordCount} / 1000</p>
+                   </div>
+                </div>
+             </div>
+
+             <div className="flex-grow min-h-[400px] p-12 bg-white/[0.02] border border-white/5 rounded-sm font-serif italic text-3xl leading-relaxed text-gray-300 custom-scrollbar overflow-y-auto">
+                {transcription || "Listening for your truth..."}
+                {isActive && <span className="inline-block w-2 h-8 bg-orange-500 ml-4 animate-pulse align-middle"></span>}
+             </div>
+
+             <div className="flex justify-center gap-6">
+                <button 
+                  onClick={stopSession}
+                  className="px-12 py-5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:border-white/30 transition-all rounded-sm"
+                >
+                  Pull up stumps
+                </button>
+                <button 
+                  onClick={handleExport}
+                  disabled={wordCount === 0}
+                  className="px-12 py-5 bg-orange-500 text-white text-[10px] font-black uppercase tracking-[0.5em] shadow-xl hover:bg-orange-600 transition-all rounded-sm disabled:opacity-20"
+                >
+                  Export to Forge
+                </button>
+             </div>
+          </div>
+        )}
+      </main>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; } 
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.8s ease-out forwards; }
+        .glow-orange { box-shadow: 0 0 30px rgba(230, 126, 34, 0.3); }
+      `}</style>
+    </div>
+  );
+};
+
+export default LiveSession;

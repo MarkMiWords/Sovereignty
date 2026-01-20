@@ -4,79 +4,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A Captive Audience | Truthful Prison Narratives</title>
+    <title>A Captive Audience | Sovereign Forge</title>
     
     <script>
-        /**
-         * BOOT GUARD & RECOVERY PROTOCOL
-         * This script is the "Black Box" that prevents the White Screen.
-         */
-        
-        // 1. Host Sanitizer: If the browser is stuck on the broken www host, try to redirect
-        if (window.location.hostname.startsWith('www.')) {
-            console.error("502 PROTECTION: Redirecting from broken subdomain to naked origin.");
-            window.location.href = window.location.href.replace('www.', '');
-        }
-
-        // 2. Global Variable Polyfill (Fixes "process is not defined" crashes)
-        window.process = { env: { API_KEY: "" } };
-
-        // 3. Error Boundary for the Browser
-        window.onerror = function(msg, url, line, col, error) {
-            console.error("CRITICAL BOOT FAILURE:", msg);
-            const recoveryUI = document.getElementById('emergency-recovery');
-            if (recoveryUI) {
-                recoveryUI.style.display = 'flex';
-                document.getElementById('error-log').innerText = msg + " at " + line + ":" + col;
-            }
-            // If the error looks like storage corruption, clear the "poison"
-            if (msg.toLowerCase().includes("json") || msg.toLowerCase().includes("parse")) {
-                localStorage.removeItem('wrap_sheets_v4');
-                localStorage.removeItem('aca_author_profile');
-            }
-            return false;
-        };
+      window.process = { env: { API_KEY: "" } };
     </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Inter:wght@100;300;400;600;700;900&display=swap" rel="stylesheet">
     
     <style>
-        body { background-color: #050505; color: white; margin: 0; }
-        #emergency-recovery {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: #0a0a0a;
-            z-index: 99999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-family: monospace;
-            padding: 2rem;
-            text-align: center;
+        body { background-color: #050505; color: white; margin: 0; overflow-x: hidden; }
+        #loading-sentinel {
+            position: fixed; inset: 0; background: #050505; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .recovery-btn {
-            background: #e67e22;
-            color: white;
-            padding: 1rem 2rem;
-            border: none;
-            cursor: pointer;
-            margin-top: 2rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-        }
+        .sentinel-bar { width: 160px; height: 1px; background: #111; margin-top: 1rem; position: relative; overflow: hidden; }
+        .sentinel-progress { position: absolute; width: 40%; height: 100%; background: #e67e22; animation: move 1.5s infinite ease-in-out; }
+        @keyframes move { 0% { left: -40%; } 100% { left: 100%; } }
+        
+        :root { --accent: #e67e22; }
+        .glow-orange { text-shadow: 0 0 20px rgba(230, 126, 34, 0.4); }
+        .animate-living-amber { animation: amber-pulse 4s infinite; }
+        @keyframes amber-pulse { 0%, 100% { color: #e67e22; } 50% { color: #ff9f43; } }
+        
+        /* Neon Glow Utility */
+        .neon-orange { color: #e67e22; text-shadow: 0 0 10px #e67e22, 0 0 20px #e67e22; }
+        .neon-red { color: #c0392b; text-shadow: 0 0 10px #c0392b, 0 0 20px #c0392b; }
+        .neon-blue { color: #2980b9; text-shadow: 0 0 10px #2980b9, 0 0 20px #2980b9; }
+        .neon-green { color: #27ae60; text-shadow: 0 0 10px #27ae60, 0 0 20px #27ae60; }
     </style>
 
     <script type="importmap">
 {
   "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@7.2.0?external=react,react-dom",
+    "@google/genai": "https://esm.sh/@google/genai@1.35.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
@@ -84,14 +52,9 @@
 </script>
 </head>
 <body>
-    <div id="emergency-recovery">
-        <h1 style="color: #e67e22; font-size: 2rem; margin-bottom: 1rem;">SYSTEM RECOVERY</h1>
-        <p>A runtime error prevented the application from loading.</p>
-        <code id="error-log" style="color: #555; background: #111; padding: 1rem; display: block; margin: 1rem 0; font-size: 10px;"></code>
-        <button class="recovery-btn" onclick="localStorage.clear(); window.location.reload();">HARD RESET (CLEAR CACHE)</button>
-        <p style="margin-top: 2rem; color: #333; font-size: 0.8rem;">Check deployment logs for 502 errors.</p>
+    <div id="loading-sentinel">
+        <div class="sentinel-bar"><div class="sentinel-progress"></div></div>
     </div>
-
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

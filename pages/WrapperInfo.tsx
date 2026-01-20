@@ -1,7 +1,8 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
+import { readJson, writeJson } from '../utils/safeStorage';
 
 const THEMES = [
   { id: 'amber', name: 'Amber (Classic)', color: '#e67e22' },
@@ -11,33 +12,32 @@ const THEMES = [
 ];
 
 const FONT_PAIRINGS = [
-  { name: 'Classic', desc: 'Serif titles with classic body text.' },
-  { name: 'Modern', desc: 'Bold serif titles with clean sans-serif body.' },
-  { name: 'Typewriter', desc: 'Industrial monospace for raw drafts.' },
-  { name: 'Manuscript', desc: 'Lightweight italic serif for flow.' },
+  { name: 'Classic', desc: 'Serif titles / Serif body.' },
+  { name: 'Modern', desc: 'Bold serif / Sans body.' },
+  { name: 'Typewriter', desc: 'Monospace industrial.' },
+  { name: 'Manuscript', desc: 'Italic flow serif.' },
 ];
 
 const PERSONALITIES = [
-  { level: 0, label: 'Mild', title: 'The Ghost', desc: 'Minimalist & Invisible. Only fixes errors. Speaks only when spoken to.' },
-  { level: 1, label: 'Steady', title: 'The Editor', desc: 'Balanced & Encouraging. Measured responses with structured feedback.' },
-  { level: 2, label: 'Cheeky', title: 'The Ally', desc: 'Opinionated & Industrial. Uses slang. Not afraid to tell you when a line is weak.' },
-  { level: 3, label: 'Wild', title: 'The Firebrand', desc: 'Rambunctious & Outrageous. Extremely talkative, cheeky, and fiercely helpful.' },
+  { level: 0, label: 'Mild', title: 'The Ghost', desc: 'Minimalist & Invisible. Only fixes errors.' },
+  { level: 1, label: 'Steady', title: 'The Editor', desc: 'Balanced & Measured. Structured feedback.' },
+  { level: 2, label: 'Cheeky', title: 'The Ally', desc: 'Opinionated & Industrial. Uses slang.' },
+  { level: 3, label: 'Wild', title: 'The Firebrand', desc: 'Rambunctious & Outrageous. Fiercely helpful.' },
 ];
 
 const WrapperInfo: React.FC = () => {
   const [profile, setProfile] = useState(() => {
-    const saved = localStorage.getItem('aca_author_profile');
-    return saved ? JSON.parse(saved) : {
+    return readJson<any>('aca_author_profile', {
       name: 'Architect',
       dialectLevel: 'Balanced',
-      vocalIntensity: 1, // Default to Steady
+      vocalIntensity: 1,
       feedbackStyle: 'Direct',
-      motivation: 'Personal Legacy',
-      customContext: '',
+      motivation: 'Prison Life',
+      region: 'Australia',
       showTooltips: true,
       theme: 'amber',
       fontIndex: 0
-    };
+    });
   });
 
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -46,7 +46,7 @@ const WrapperInfo: React.FC = () => {
   const visualSigRef = useRef<HTMLDivElement>(null);
 
   const saveProfile = () => {
-    localStorage.setItem('aca_author_profile', JSON.stringify(profile));
+    writeJson('aca_author_profile', profile);
     
     // Apply theme globally
     document.documentElement.className = profile.theme !== 'amber' ? `theme-${profile.theme}` : '';
@@ -63,16 +63,13 @@ const WrapperInfo: React.FC = () => {
 ${profile.name.toUpperCase()} // AUTHOR DEPT.
 A CAPTIVE AUDIENCE | SOVEREIGN ARCHIVE
 --------------------------------------------------
-REF: PROTOCOL BETA 4.0
+REF: PROTOCOL BETA 4.1
 DISPATCH_KEY: AT-SYNC-ACTIVE
 URL: ACAPTIVEAUDIENCE.COM
 --------------------------------------------------
       `.trim();
       navigator.clipboard.writeText(sig);
     } else {
-      // For visual signatures, we'll suggest manual copy-paste for best results in Outlook/Gmail
-      // Modern browsers allow selecting and copying rich text, but direct "copying HTML to clipboard" is complex.
-      // We will provide a button that highlights the area to make copying easier.
       if (visualSigRef.current) {
         const range = document.createRange();
         range.selectNode(visualSigRef.current);
@@ -89,158 +86,144 @@ URL: ACAPTIVEAUDIENCE.COM
   const currentPersonality = PERSONALITIES[profile.vocalIntensity || 0];
 
   return (
-    <div className="bg-[#050505] min-h-screen text-white pb-32 font-sans selection:bg-[var(--accent)]/30 overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-5xl h-full flex items-center justify-center">
-          <svg viewBox="0 0 800 1000" className="w-full h-full opacity-[0.07]">
-            <path 
-              id="paper-path"
-              className="paper-anim"
-              d="M100,100 L700,100 L700,900 L100,900 Z" 
-              fill="none" 
-              stroke="var(--accent)" 
-              strokeWidth="2"
-            />
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" opacity="0.1"/>
-            </pattern>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+    <div className="bg-[#050505] min-h-screen text-white pb-32 font-sans selection:bg-[var(--accent)]/30 overflow-x-hidden pt-24">
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(230,126,34,0.03)_0%,transparent_70%)]"></div>
       </div>
 
-      <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 border-b border-white/5">
-        <Link to="/author-builder" className="text-[var(--accent)] text-[11px] font-bold uppercase tracking-[0.4em] mb-12 block hover:underline transition-all">← Return to Studio</Link>
-        <h1 className="text-7xl md:text-9xl font-serif font-black italic text-white mb-6 tracking-tighter leading-none uppercase">PROFILE.</h1>
-        <p className="text-2xl md:text-3xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"Your WRAP Profile is the baseline for your partner. Calibrate it to protect your truth."</p>
+      <section className="relative z-10 max-w-4xl mx-auto px-6 py-12">
+        <Link to="/author-builder" className="text-orange-500 text-[10px] font-black uppercase tracking-[0.4em] mb-12 block hover:underline transition-all group">
+          <span className="group-hover:-translate-x-1 inline-block transition-transform">←</span> Return to Studio
+        </Link>
+        <h1 className="text-6xl md:text-8xl font-serif font-black italic text-white mb-6 tracking-tighter leading-none uppercase glow-white">WRAP <span className="text-orange-500">Profile.</span></h1>
+        <p className="text-xl md:text-2xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"Calibrate your partner's frequency and your workspace aesthetics."</p>
       </section>
 
-      <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 space-y-32">
-        <div className="bg-[#0a0a0a] border border-white/10 p-12 lg:p-24 rounded-sm shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative overflow-hidden group/train">
-          <div className="absolute -top-10 -right-10 p-8 opacity-[0.03] text-[15rem] font-serif italic select-none group-hover/train:opacity-[0.07] transition-opacity duration-1000">WRAP</div>
+      <section className="relative z-10 max-w-4xl mx-auto px-6 space-y-24">
+        {/* Core Settings Forge */}
+        <div className="bg-[#0a0a0a] border border-white/10 p-10 lg:p-20 rounded-sm shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-10 opacity-5 text-9xl font-serif italic select-none pointer-events-none">FORGE</div>
           
-          <div className="relative z-10">
-            <h2 className="text-white text-4xl font-serif italic mb-4">Voice <span className="text-[var(--accent)]">Calibration.</span></h2>
-            <p className="text-gray-500 text-base italic mb-16 max-w-xl">Training your WRAP Profile ensures that when you 'Scrub' or 'Rinse' your prose, the AI respects your unique dialect and personality preferences.</p>
-
-            <div className="grid gap-16">
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-[var(--accent)] uppercase tracking-[0.4em]">Author Name / Identity</label>
-                <input 
-                  value={profile.name} 
-                  onChange={e => setProfile({...profile, name: e.target.value})}
-                  className="w-full bg-transparent border-b border-white/10 pb-6 text-3xl font-serif outline-none focus:border-[var(--accent)] text-white transition-all placeholder:text-gray-900" 
-                  placeholder="e.g. Mark Mi Words" 
-                />
-              </div>
-
-              {/* VOCAL INTENSITY SLIDER */}
-              <div className="space-y-10 p-8 bg-white/[0.02] border border-white/5 rounded-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                  <span className="text-6xl font-serif italic uppercase text-[var(--accent)]">{currentPersonality.label}</span>
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <label className="text-[10px] font-black text-[var(--accent)] uppercase tracking-[0.4em]">Vocal Intensity: <span className="text-white">{currentPersonality.title}</span></label>
-                  <p className="text-xs text-gray-500 italic max-w-md">{currentPersonality.desc}</p>
-                </div>
-
-                <div className="relative pt-4 px-2">
-                   <input 
-                     type="range" 
-                     min="0" 
-                     max="3" 
-                     step="1"
-                     value={profile.vocalIntensity || 0}
-                     onChange={e => setProfile({...profile, vocalIntensity: parseInt(e.target.value)})}
-                     className="w-full h-1 bg-white/10 appearance-none cursor-pointer accent-[var(--accent)]"
-                   />
-                   <div className="flex justify-between mt-4 text-[8px] font-black text-gray-700 uppercase tracking-widest">
-                     <span>Mild</span>
-                     <span>Steady</span>
-                     <span>Cheeky</span>
-                     <span className="text-orange-500 animate-pulse">Wild</span>
-                   </div>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-12">
-                <div className="space-y-6">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Chroma Calibration (Theme)</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    {THEMES.map(theme => (
-                      <button 
-                        key={theme.id}
-                        onClick={() => setProfile({...profile, theme: theme.id})}
-                        className={`p-6 border transition-all rounded-sm flex flex-col items-center gap-3 ${profile.theme === theme.id ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-white/5 hover:border-white/20'}`}
-                      >
-                          <div className="w-8 h-8 rounded-full shadow-lg" style={{ backgroundColor: theme.color }}></div>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-gray-500">{theme.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.4em]">Workspace Typography</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    {FONT_PAIRINGS.slice(0,4).map((font, idx) => (
-                      <button 
-                        key={font.name}
-                        onClick={() => setProfile({...profile, fontIndex: idx})}
-                        className={`p-6 border transition-all rounded-sm flex flex-col items-center text-center gap-2 ${profile.fontIndex === idx ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-white/5 hover:border-white/20'}`}
-                      >
-                          <span className="text-xl font-serif italic text-white">{font.name}</span>
-                          <span className="text-[7px] font-bold uppercase tracking-widest text-gray-600">{font.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <button 
-                onClick={saveProfile}
-                className="group relative bg-[var(--accent)] text-white py-8 text-[11px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-orange-600 transition-all rounded-sm overflow-hidden"
-              >
-                <span className="relative z-10">Synchronize WRAP Profile</span>
-                <div className="absolute inset-0 bg-white/10 transform -translate-x-full group-hover:translate-y-0 transition-transform duration-500"></div>
-              </button>
+          <div className="relative z-10 space-y-16">
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-orange-500 uppercase tracking-[0.5em]">Identity Registry</label>
+              <input 
+                value={profile.name} 
+                onChange={e => setProfile({...profile, name: e.target.value})}
+                className="w-full bg-transparent border-b border-white/10 pb-6 text-4xl font-serif italic outline-none focus:border-orange-500 text-white transition-all placeholder:text-gray-900" 
+                placeholder="Author Name..." 
+              />
             </div>
+
+            {/* Vocal Intensity Slider */}
+            <div className="space-y-10 p-10 bg-black border border-white/5 rounded-sm">
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-end">
+                   <label className="text-[10px] font-black text-orange-500 uppercase tracking-[0.5em]">Vocal Intensity</label>
+                   <span className="text-[10px] font-black text-white uppercase tracking-widest">{currentPersonality.title}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 italic max-w-md">{currentPersonality.desc}</p>
+              </div>
+
+              <div className="relative pt-4">
+                 <input 
+                   type="range" 
+                   min="0" 
+                   max="3" 
+                   step="1"
+                   value={profile.vocalIntensity || 0}
+                   onChange={e => setProfile({...profile, vocalIntensity: parseInt(e.target.value)})}
+                   className="w-full h-1 bg-white/10 appearance-none cursor-pointer accent-orange-500"
+                 />
+                 <div className="flex justify-between mt-6 text-[8px] font-black text-gray-700 uppercase tracking-[0.4em]">
+                   <span>Mild</span>
+                   <span>Steady</span>
+                   <span>Cheeky</span>
+                   <span className="text-orange-500 animate-pulse">Firebrand</span>
+                 </div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-12">
+               {/* Themes */}
+               <div className="space-y-6">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Chroma Calibration</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {THEMES.map(t => (
+                      <button 
+                        key={t.id}
+                        onClick={() => setProfile({...profile, theme: t.id})}
+                        className={`p-6 border transition-all rounded-sm flex flex-col items-center gap-3 ${profile.theme === t.id ? 'border-orange-500 bg-orange-500/5' : 'border-white/5 hover:bg-white/5'}`}
+                      >
+                        <div className="w-6 h-6 rounded-full shadow-xl" style={{ backgroundColor: t.color }}></div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-gray-500">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+               </div>
+
+               {/* Fonts */}
+               <div className="space-y-6">
+                  <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Typography Registry</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {FONT_PAIRINGS.map((f, idx) => (
+                      <button 
+                        key={f.name}
+                        onClick={() => setProfile({...profile, fontIndex: idx})}
+                        className={`p-6 border transition-all rounded-sm flex flex-col items-center text-center gap-2 ${profile.fontIndex === idx ? 'border-orange-500 bg-orange-500/5' : 'border-white/5 hover:bg-white/5'}`}
+                      >
+                        <span className="text-xl font-serif italic text-white">{f.name}</span>
+                        <span className="text-[7px] font-bold uppercase tracking-widest text-gray-600">{f.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+               </div>
+            </div>
+
+            <button 
+              onClick={saveProfile}
+              className="w-full py-8 bg-orange-500 text-white text-[11px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-orange-600 transition-all rounded-sm glow-orange"
+            >
+              Synchronize WRAP Profile
+            </button>
           </div>
         </div>
 
-        {/* Dispatch Signature Tool */}
-        <div className="bg-[#050505] border border-white/5 p-12 lg:p-20 relative overflow-hidden rounded-sm">
+        {/* Signature Forge Tool */}
+        <div className="bg-[#050505] border border-white/5 p-10 lg:p-20 rounded-sm relative shadow-2xl overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.02] text-8xl font-serif italic select-none">SIG</div>
+          
           <div className="relative z-10 space-y-12">
-            <div className="space-y-4">
-              <span className="text-[var(--accent)] text-[9px] font-black uppercase tracking-[0.5em]">Media Assets</span>
-              <h2 className="text-3xl font-serif italic">Dispatch <span className="text-[var(--accent)]">Signatures.</span></h2>
-              <p className="text-gray-500 text-sm italic font-light max-w-xl">Formatted identity blocks for Outlook, Gmail, or Monospace terminal drafts.</p>
+            <div className="space-y-2">
+              <span className="text-orange-500 text-[9px] font-black uppercase tracking-[0.5em]">Media Assets</span>
+              <h2 className="text-3xl font-serif italic">Dispatch <span className="text-orange-500">Signatures.</span></h2>
+              <p className="text-gray-500 text-sm italic font-light">One-click assets for your external correspondence.</p>
             </div>
 
-            <div className="flex gap-4 border-b border-white/10 pb-4">
+            <div className="flex gap-4 border-b border-white/5 pb-4">
                <button 
                  onClick={() => setSigMode('visual')}
-                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2 ${sigMode === 'visual' ? 'text-[var(--accent)] border-[var(--accent)]' : 'text-gray-700 border-transparent hover:text-gray-400'}`}
+                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2 ${sigMode === 'visual' ? 'text-orange-500 border-orange-500' : 'text-gray-700 border-transparent hover:text-gray-400'}`}
                >
-                 Visual Mode (Outlook)
+                 Visual Mode
                </button>
                <button 
                  onClick={() => setSigMode('monospace')}
-                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2 ${sigMode === 'monospace' ? 'text-[var(--accent)] border-[var(--accent)]' : 'text-gray-700 border-transparent hover:text-gray-400'}`}
+                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2 ${sigMode === 'monospace' ? 'text-orange-500 border-orange-500' : 'text-gray-700 border-transparent hover:text-gray-400'}`}
                >
-                 Monospace Mode (Drafts)
+                 Monospace Mode
                </button>
             </div>
             
-            <div className="bg-black border border-white/10 p-12 rounded-sm shadow-inner group relative min-h-[200px] flex items-center justify-center">
+            <div className="bg-black border border-white/10 p-12 rounded-sm shadow-inner group relative min-h-[220px] flex items-center justify-center">
                {sigMode === 'monospace' ? (
                  <pre className="font-mono text-[10px] text-gray-400 leading-relaxed whitespace-pre-wrap">
 {`--------------------------------------------------
 ${profile.name.toUpperCase()} // AUTHOR DEPT.
 A CAPTIVE AUDIENCE | SOVEREIGN ARCHIVE
 --------------------------------------------------
-REF: PROTOCOL BETA 4.0
+REF: PROTOCOL BETA 4.1
 DISPATCH_KEY: AT-SYNC-ACTIVE
 URL: ACAPTIVEAUDIENCE.COM
 --------------------------------------------------`}
@@ -248,10 +231,10 @@ URL: ACAPTIVEAUDIENCE.COM
                ) : (
                  <div 
                    ref={visualSigRef} 
-                   className="flex items-center gap-8 text-left py-4"
+                   className="flex items-center gap-10 text-left py-4"
                    style={{ color: '#ffffff', fontFamily: "'Playfair Display', serif" }}
                  >
-                    <div className="w-24 h-24 border-r border-white/20 pr-8 flex items-center">
+                    <div className="w-20 h-20 border-r border-white/10 pr-10 flex items-center">
                        <Logo variant="light" className="w-full h-auto" />
                     </div>
                     <div className="space-y-1">
@@ -263,53 +246,35 @@ URL: ACAPTIVEAUDIENCE.COM
                )}
             </div>
 
-            <div className="space-y-6">
-              <button 
-                onClick={copySignature}
-                className={`w-full py-6 text-[10px] font-black uppercase tracking-[0.4em] transition-all border ${copyStatus === 'copied' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}
-              >
-                {copyStatus === 'copied' ? 'Signature Synchronized (Copied)' : `Copy ${sigMode === 'visual' ? 'Visual' : 'Monospace'} Signature`}
-              </button>
-              
-              {sigMode === 'visual' && (
-                <div className="p-6 bg-orange-500/5 border border-orange-500/10 rounded-sm">
-                   <p className="text-[8px] font-black text-orange-500 uppercase tracking-widest mb-2">Outlook Integration Tip:</p>
-                   <p className="text-[10px] text-gray-500 italic leading-relaxed">After clicking copy, open Outlook Settings > Signature and simply press **Ctrl+V (Paste)**. The logo and formatting will bridge automatically.</p>
-                </div>
-              )}
-            </div>
+            <button 
+              onClick={copySignature}
+              className={`w-full py-6 text-[10px] font-black uppercase tracking-[0.4em] transition-all border ${copyStatus === 'copied' ? 'bg-green-500 border-green-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}
+            >
+              {copyStatus === 'copied' ? 'Registry Copied' : `Copy ${sigMode === 'visual' ? 'Visual' : 'Monospace'} Signature`}
+            </button>
           </div>
-        </div>
-
-        <div className="pt-24 text-center">
-          <Link to="/author-builder" className="inline-block bg-white text-black px-20 py-8 text-[11px] font-black uppercase tracking-[0.6em] shadow-2xl hover:bg-[var(--accent)] hover:text-white transition-all transform hover:-translate-y-2 rounded-sm">Return to Studio</Link>
         </div>
       </section>
 
       {showSavedToast && (
-        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--accent)] text-white px-12 py-5 rounded-full text-[11px] font-black uppercase tracking-[0.5em] shadow-[0_20px_50px_rgba(230,126,34,0.5)] animate-toast-up z-[100] border border-white/20">
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-orange-500 text-white px-10 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.5em] shadow-[0_20px_50px_rgba(230,126,34,0.4)] animate-toast-up z-[100] border border-white/20">
           Memory Synchronized
         </div>
       )}
 
       <style>{`
-        @keyframes paper-morph {
-          0%, 100% { d: path("M100,100 L700,100 L700,900 L100,900 Z"); }
-          50% { d: path("M200,200 C400,100 600,300 750,250 L650,750 C450,850 250,650 150,800 Z"); }
-        }
-        .paper-anim { animation: paper-morph 20s infinite ease-in-out; }
         @keyframes toast-up { from { opacity: 0; transform: translateY(50px) translateX(-50%); } to { opacity: 1; transform: translateY(0) translateX(-50%); } }
-        .animate-toast-up { animation: toast-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-toast-up { animation: toast-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
         input[type='range']::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 16px;
-          height: 16px;
-          background: var(--accent);
-          border: 3px solid black;
+          width: 20px;
+          height: 20px;
+          background: #e67e22;
+          border: 4px solid black;
           border-radius: 50%;
           cursor: pointer;
-          box-shadow: 0 0 10px var(--accent-glow);
+          box-shadow: 0 0 10px rgba(230, 126, 34, 0.5);
         }
       `}</style>
     </div>

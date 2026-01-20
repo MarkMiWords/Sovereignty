@@ -1,105 +1,179 @@
 
 import { Message, ManuscriptReport, MasteringGoal } from "../types";
-import { GoogleGenAI, Type } from "@google/genai";
-import { devLog } from "../components/DevConsole";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 
-// Ultra-safe API Key Getter
-const getSafeApiKey = () => {
-  try {
-    // Check various common injection points
-    const key = process?.env?.API_KEY || (window as any).process?.env?.API_KEY || "";
-    return key;
-  } catch (e) {
-    return "";
-  }
-};
+/**
+ * SOVEREIGN AI BRIDGE v6.6
+ * Native AI Studio Integration
+ */
 
-const getDirectMode = () => {
-  try {
-    return localStorage.getItem('aca_dev_direct') === 'true';
-  } catch (e) {
-    return false;
-  }
-};
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-async function callSovereignAPI(endpoint: string, body: any) {
-  const isDirect = getDirectMode();
+export const smartSoap = async (text: string, level: string, style: string, region: string) => {
+  const ai = getAI();
   
-  if (isDirect) {
-    devLog('request', `[DIRECT] Calling ${endpoint}...`);
-    try {
-      const apiKey = getSafeApiKey();
-      if (!apiKey) throw new Error("API Key missing. Select one via dev tools.");
-      
-      const ai = new GoogleGenAI({ apiKey });
-      
-      if (endpoint === 'partner') {
-        const { message, history, activeSheetContent, style, region } = body;
-        const contents = (history || []).map((h: any) => ({
-          role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: String(h.content || "") }]
-        }));
-        contents.push({
-          role: 'user',
-          parts: [{ text: `[CONTEXT] ${activeSheetContent} [/CONTEXT]\n\nAUTHOR QUERY: ${message}` }]
-        });
+  let instruction = "";
+  let useTools = false;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents,
-          config: {
-            systemInstruction: `You are WRAPPER. Style: ${style}. Region: ${region}. Preserve grit.`,
-            tools: [{ googleSearch: {} }]
-          }
-        });
+  switch (level) {
+    case 'rinse':
+      instruction = `You are the RINSE agent. Fix spelling and grammar ONLY. DO NOT change the author's voice, do not add embellishments, and do not improve the prose. Keep the raw grit exactly as is, just corrected. Context: ${region}. Style: ${style}.`;
+      break;
+    case 'wash':
+      instruction = `You are the WASH agent. Fix spelling and grammar and provide LIGHT literary embellishment. Lift the quality of the prose slightly while maintaining the author's authentic carceral voice. Context: ${region}. Style: ${style}.`;
+      break;
+    case 'scrub':
+      instruction = `You are the SCRUB agent. Fix spelling/grammar and perform HEAVY LIFTING of the prose. Elevate the narrative structure and vocabulary for maximum impact while preserving the emotional truth. Context: ${region}. Style: ${style}.`;
+      break;
+    case 'fact_check':
+      instruction = `You are the FACT CHECKER. Analyze the provided text for legal claims, mentions of specific laws, court cases, or factual statements. Use Google Search to verify if these claims are accurate. Provide a list of confirmations or necessary corrections at the end of the text. Context: ${region}.`;
+      useTools = true;
+      break;
+    case 'sanitise':
+      instruction = `You are the SANITISE agent. Your ONLY job is privacy. Identify all real names of people and specific locations. Act as a Name Generator and replace them with realistic fictional aliases that fit the ${region} context. DO NOT change grammar or prose. Focus exclusively on protecting identities. Output the modified text.`;
+      break;
+    case 'polish_turd':
+      instruction = `You are the High-Intensity Polisher. Take this poorly written or raw carceral text and transform it into a masterpiece of grit and prose without losing the author's soul. Preserve dialetic authenticity while maximizing structural impact.`;
+      break;
+    case 'expand':
+      instruction = `You are the Expansion Forge. Drastically expand this narrative by exploring the sensory details of the environment, the internal monologue of the author, and the weight of the context. Style: ${style}. Region: ${region}. Make it visceral.`;
+      break;
+    case 'dogg_me':
+      instruction = `You are the Doggerel Forge. Filter this narrative into a rhythmic, raw, industrial poem or rhyming prose. Maintain the carceral grit and regional slang.`;
+      break;
+    default:
+      instruction = `Perform a general literary polish. Style: ${style}. Region: ${region}.`;
+  }
 
-        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        const sources = groundingChunks.map((chunk: any) => ({
-          web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
-        })).filter((s: any) => s.web.uri);
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ role: 'user', parts: [{ text }] }],
+    config: {
+      systemInstruction: instruction,
+      tools: useTools ? [{ googleSearch: {} }] : []
+    }
+  });
 
-        return { role: 'assistant', content: response.text, sources };
+  return { text: response.text || "" };
+};
+
+export const queryPartner = async (message: string, style: string, region: string, history: any[], activeSheetContent: string): Promise<Message> => {
+  const ai = getAI();
+  const contents = (history || []).map((h: any) => ({
+    role: h.role === 'user' ? 'user' : 'model',
+    parts: [{ text: String(h.content || "") }]
+  }));
+  
+  contents.push({
+    role: 'user',
+    parts: [{ text: activeSheetContent ? `[CONTEXT] ${activeSheetContent} [/CONTEXT]\n\nAUTHOR QUERY: ${message}` : message }]
+  });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents,
+    config: {
+      systemInstruction: `You are WRAPPER, the Sovereign Partner. Tone: ${style}. Region: ${region}. Goal: Narrative Integrity. Provide intense, helpful, and industrial advice.`,
+      tools: [{ googleSearch: {} }]
+    }
+  });
+
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks.map((chunk: any) => ({
+    web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
+  })).filter((s: any) => s.web.uri);
+
+  return { role: 'assistant', content: response.text || "", sources };
+};
+
+export const queryInsight = async (message: string): Promise<Message> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ role: 'user', parts: [{ text: message }] }],
+    config: {
+      systemInstruction: "You are an Archive Specialist for carceral narratives. Use Google Search for systemic context.",
+      tools: [{ googleSearch: {} }],
+    },
+  });
+
+  const content = response.text || "";
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks.map((chunk: any) => ({
+    web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
+  })).filter((s: any) => s.web.uri);
+
+  return { role: 'assistant', content, sources };
+};
+
+export const interactWithAurora = async (message: string): Promise<string> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ role: "user", parts: [{ text: message }] }],
+    config: {
+      systemInstruction: "You are 'Aurora', a Kindred Agent. Empathetic, calm, creative sanctuary partner.",
+    }
+  });
+  return response.text || "I am listening.";
+};
+
+export const generateImage = async (prompt: string) => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts: [{ text: `High-grit book cover art: ${prompt}. Orange accents, cinematic lighting.` }] }
+  });
+  let base64 = "";
+  if (response.candidates?.[0]?.content?.parts) {
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) { 
+        base64 = part.inlineData.data; 
+        break; 
       }
-
-      if (endpoint === 'soap') {
-        const { text, level, style, region } = body;
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: [{ role: 'user', parts: [{ text }] }],
-          config: {
-            systemInstruction: `You are WRAPPER. Level: ${level}. Style: ${style}. Region: ${region}. Preserve grit.`
-          }
-        });
-        return { text: response.text };
-      }
-      
-      // Fallback for missing endpoints in direct mode
-      return { text: "Endpoint not yet implemented in direct mode." };
-      
-    } catch (err: any) {
-      devLog('error', `Direct Link Exception: ${err.message}`);
-      throw err;
     }
   }
-
-  // STANDARD SERVER PATHWAY
-  const response = await fetch(`/api/${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  
-  if (!response.ok) throw new Error(`Server Error: ${response.status}`);
-  return response.json();
-}
-
-export const smartSoap = async (text: string, level: string, style: string, region: string) => callSovereignAPI('soap', { text, level, style, region });
-export const queryPartner = async (message: string, style: string, region: string, history: any[], activeSheetContent: string) => callSovereignAPI('partner', { message, style, region, history, activeSheetContent });
-export const queryInsight = async (message: string): Promise<Message> => callSovereignAPI('insight', { message });
-export const performOCR = async (imageBase64: string) => callSovereignAPI('ocr', { imageBase64 });
-export const interactWithAurora = async (message: string) => {
-  const result = await callSovereignAPI('kindred', { message });
-  return result.text || result;
+  return { imageUrl: `data:image/png;base64,${base64}` };
 };
-export const generateImage = async (prompt: string) => callSovereignAPI('generate-image', { prompt });
-export const analyzeFullManuscript = async (content: string, goal: MasteringGoal): Promise<ManuscriptReport> => callSovereignAPI('manuscript', { content, goal });
+
+export const connectLive = (callbacks: any, systemInstruction: string) => {
+  const ai = getAI();
+  return ai.live.connect({
+    model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    callbacks,
+    config: {
+      responseModalities: [Modality.AUDIO],
+      systemInstruction,
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+      }
+    }
+  });
+};
+
+export const analyzeFullManuscript = async (content: string, goal: MasteringGoal): Promise<ManuscriptReport> => {
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: [{ role: "user", parts: [{ text: content.substring(0, 32000) }] }],
+    config: {
+      systemInstruction: `Audit manuscript for ${goal}. Provide specific mastering advice.`,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          toneAssessment: { type: Type.STRING },
+          structuralCheck: { type: Type.STRING },
+          legalSafetyAudit: { type: Type.STRING },
+          resourceIntensity: { type: Type.NUMBER },
+          marketabilityScore: { type: Type.NUMBER },
+          suggestedTitle: { type: Type.STRING },
+          mediumSpecificAdvice: { type: Type.STRING },
+        },
+        required: ["summary", "toneAssessment", "structuralCheck", "legalSafetyAudit", "resourceIntensity", "marketabilityScore", "suggestedTitle", "mediumSpecificAdvice"],
+      },
+    },
+  });
+  return JSON.parse(response.text || "{}");
+};

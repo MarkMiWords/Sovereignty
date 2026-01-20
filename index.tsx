@@ -1,28 +1,25 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
 
-const mountApp = () => {
-  try {
-    const rootElement = document.getElementById('root');
-    if (!rootElement) {
-      throw new Error("Target container #root not found in DOM.");
-    }
-
-    const root = ReactDOM.createRoot(rootElement);
+async function bootstrap() {
+  const { default: App } = await import('./App.tsx');
+  const rootEl = document.getElementById('root');
+  if (rootEl) {
+    const root = ReactDOM.createRoot(rootEl);
     root.render(
       <React.StrictMode>
         <App />
       </React.StrictMode>
     );
-  } catch (error: any) {
-    console.error("MOUNT FAILURE:", error);
-    // Explicitly trigger the index.html window.onerror logic
-    if (window.onerror) {
-      window.onerror(error.message, 'index.tsx', 0, 0, error);
-    }
+    
+    // Cleanup sentinel
+    const sentinel = document.getElementById('loading-sentinel');
+    if (sentinel) sentinel.remove();
   }
-};
+}
 
-mountApp();
+bootstrap().catch(err => {
+  console.error("Critical mount failure:", err);
+  document.body.innerHTML = `<div style="padding:40px;color:red;font-family:monospace;">BOOT_ERROR: ${err.message}</div>`;
+});
