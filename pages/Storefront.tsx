@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Book } from '../types';
 
@@ -21,6 +21,17 @@ const openVault = (): Promise<IDBDatabase> => {
   });
 };
 
+const saveToVault = async (book: Book) => {
+  const db = await openVault();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('books', 'readwrite');
+    const store = transaction.objectStore('books');
+    store.put(book);
+    transaction.oncomplete = () => resolve(true);
+    transaction.onerror = () => reject(transaction.error);
+  });
+};
+
 const getFromVault = async (): Promise<Book[]> => {
   try {
     const db = await openVault();
@@ -38,45 +49,71 @@ const getFromVault = async (): Promise<Book[]> => {
 
 const Storefront: React.FC = () => {
   const [featuredBook, setFeaturedBook] = useState<Book | null>(null);
+  const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadRegistry = async () => {
+    setLoading(true);
+    const registry = await getFromVault();
+    setAllBooks(registry);
+    
+    // Priority: Flagship slug -> Newest Entry -> Fallback
+    let found = registry.find(b => b.slug === 'the-ivo-trap');
+    if (!found && registry.length > 0) {
+      found = registry[registry.length - 1];
+    }
+    
+    if (found) {
+      setFeaturedBook(found);
+    } else {
+      setFeaturedBook({
+        id: 'ivo-master-1',
+        title: 'The IVO Trap',
+        subtitle: 'Intervention Orders: From the Inside Out',
+        author: 'Mark Mi Words',
+        description: "There is no way of knowing how many family violence orders are enforced across Australia. What we do know is how many have wound up in court. In 2023–24, 42% of all civil cases finalised in Australian Magistrates’ Courts involved originating applications for domestic violence orders — around 131,000 cases.",
+        coverUrl: 'https://images.unsplash.com/photo-1541829081725-6f1c93bb3c24?q=80&w=1200&auto=format&fit=crop',
+        slug: 'the-ivo-trap',
+        releaseYear: '2024',
+        buyUrl: 'https://www.ingramspark.com/'
+      });
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const loadFeatured = async () => {
-      setLoading(true);
-      const registry = await getFromVault();
-      
-      /**
-       * MASTER REGISTRY HIERARCHY:
-       * 1. Specific Target: 'the-ivo-trap' (Standard Flagship)
-       * 2. Recency Rule: If flagship isn't custom-loaded, take the absolute newest entry.
-       * 3. Fallback: Hardcoded fallback object for zero-state availability.
-       */
-      let found = registry.find(b => b.slug === 'the-ivo-trap');
-      
-      // If the user hasn't customized the flagship but HAS other books, show the latest creation
-      if (!found && registry.length > 0) {
-        found = registry[registry.length - 1];
-      }
-      
-      if (found) {
-        setFeaturedBook(found);
-      } else {
-        setFeaturedBook({
+    loadRegistry();
+  }, []);
+
+  const handleManualSync = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsSyncing(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      const updatedBook: Book = {
+        ...(featuredBook || {
           id: 'ivo-master-1',
           title: 'The IVO Trap',
-          subtitle: 'Intervention Orders: From the Inside Out',
           author: 'Mark Mi Words',
-          description: "There is no way of knowing how many family violence orders are enforced across Australia. What we do know is how many have wound up in court. In 2023–24, 42% of all civil cases finalised in Australian Magistrates’ Courts involved originating applications for domestic violence orders — around 131,000 cases.",
-          coverUrl: 'https://images.unsplash.com/photo-1541829081725-6f1c93bb3c24?q=80&w=1200&auto=format&fit=crop',
+          description: '',
           slug: 'the-ivo-trap',
-          releaseYear: '2024',
-          buyUrl: 'https://www.ingramspark.com/'
-        });
-      }
-      setLoading(false);
+          releaseYear: '2024'
+        }),
+        coverUrl: base64,
+        slug: 'the-ivo-trap' // Force flagship slug for storefront persistence
+      };
+
+      await saveToVault(updatedBook);
+      await loadRegistry();
+      setIsSyncing(false);
     };
-    loadFeatured();
-  }, []);
+    reader.readAsDataURL(file);
+  };
 
   if (loading || !featuredBook) {
     return (
@@ -88,7 +125,7 @@ const Storefront: React.FC = () => {
 
   return (
     <div className="bg-[#020202] min-h-screen text-white overflow-hidden pb-32">
-      {/* Cinematic Background (Dynamically uses the Book Cover) */}
+      {/* Cinematic Background */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-transparent to-[#020202] z-10"></div>
         {featuredBook.coverUrl && (
@@ -100,11 +137,12 @@ const Storefront: React.FC = () => {
         )}
       </div>
 
+      {/* Main Hero Showcase */}
       <div className="relative z-20 max-w-7xl mx-auto px-6 pt-12 md:pt-32">
         <div className="flex flex-col lg:flex-row items-center gap-20 lg:gap-32">
           
           {/* Glorified Book Presentation */}
-          <div className="w-full lg:w-1/2 flex justify-center perspective-1000">
+          <div className="w-full lg:w-1/2 flex flex-col items-center justify-center perspective-1000">
             <div className="relative group animate-float">
               {/* Pulsating Multicolor Aura */}
               <div className="absolute -inset-4 bg-gradient-to-r from-orange-500 via-purple-500 to-cyan-500 rounded-lg blur-3xl opacity-40 group-hover:opacity-100 transition-opacity duration-1000 animate-pulsate-aura"></div>
@@ -113,11 +151,11 @@ const Storefront: React.FC = () => {
               <div className="absolute inset-2 bg-black blur-xl opacity-80 translate-x-8 translate-y-8"></div>
 
               {/* The Book (The core placeholder window) */}
-              <div className="relative z-10 w-[320px] md:w-[420px] aspect-[16/27] bg-[#0a0a0a] border-l-[12px] border-black shadow-2xl rounded-r-sm overflow-hidden transform rotate-y-[-5deg] transition-transform duration-700 group-hover:rotate-y-[-2deg]">
+              <div className="relative z-10 w-[320px] md:w-[420px] aspect-[16/27] bg-[#0a0a0a] border-l-[12px] border-black shadow-2xl rounded-r-sm overflow-hidden transform rotate-y-[-5deg] transition-all duration-700 group-hover:rotate-y-[0deg]">
                 {featuredBook.coverUrl ? (
                   <img 
                     src={featuredBook.coverUrl} 
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain block opacity-100"
                     alt={`${featuredBook.title} Master Cover`}
                   />
                 ) : (
@@ -130,6 +168,17 @@ const Storefront: React.FC = () => {
 
               {/* Glow Accents on Edges */}
               <div className="absolute -inset-[2px] rounded-r-sm border border-white/10 z-20 pointer-events-none"></div>
+            </div>
+
+            {/* Emergency Master Sync (Hidden Input) */}
+            <div className="mt-8 flex items-center gap-4">
+               <button 
+                 onClick={() => fileInputRef.current?.click()}
+                 className={`px-6 py-3 border border-white/10 text-[8px] font-black uppercase tracking-widest hover:border-orange-500 hover:text-orange-500 transition-all rounded-sm ${isSyncing ? 'animate-pulse' : ''}`}
+               >
+                 {isSyncing ? 'Syncing...' : 'Emergency Master Sync'}
+               </button>
+               <input type="file" ref={fileInputRef} onChange={handleManualSync} className="hidden" accept="image/png,image/jpeg" />
             </div>
           </div>
 
@@ -189,6 +238,40 @@ const Storefront: React.FC = () => {
         </div>
       </div>
 
+      {/* Dynamic Registry Archive Grid */}
+      <div className="relative z-20 max-w-7xl mx-auto px-6 mt-48">
+        <div className="flex items-end justify-between border-b border-white/5 pb-12 mb-16">
+           <div>
+              <span className="text-[var(--accent)] tracking-[0.5em] uppercase text-[9px] font-black block mb-4">The Archive</span>
+              <h2 className="text-4xl md:text-5xl font-serif italic font-black text-white">Registered <span className="text-gray-600">Masters.</span></h2>
+           </div>
+           <Link to="/published-books" className="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-[var(--accent)] transition-colors">Manage Registry →</Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+           {allBooks.length > 0 ? (
+             allBooks.map((book) => (
+               <Link key={book.id} to={`/book/${book.slug}`} className="group space-y-4">
+                  <div className="aspect-[16/27] bg-[#0a0a0a] border-l-4 border-black group-hover:border-[var(--accent)] transition-all overflow-hidden rounded-r-sm relative shadow-xl">
+                     <img src={book.coverUrl} className="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" alt={book.title} />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white">View Details</span>
+                     </div>
+                  </div>
+                  <div className="space-y-1">
+                     <h3 className="text-xs font-black uppercase tracking-widest text-white truncate">{book.title}</h3>
+                     <p className="text-[8px] text-gray-600 uppercase font-black">{book.author}</p>
+                  </div>
+               </Link>
+             ))
+           ) : (
+             <div className="col-span-full py-24 text-center border border-dashed border-white/5 rounded-sm">
+                <p className="text-gray-800 text-[10px] font-black uppercase tracking-[0.4em]">Archive Link Standby... Registry Empty</p>
+             </div>
+           )}
+        </div>
+      </div>
+
       <style>{`
         @keyframes drift {
           0% { transform: scale(1.1) translate(0, 0); }
@@ -211,7 +294,7 @@ const Storefront: React.FC = () => {
 
         .perspective-1000 { perspective: 1000px; }
         .rotate-y-[-5deg] { transform: rotateY(-15deg); }
-        .group-hover\:rotate-y-\[-2deg\]:hover { transform: rotateY(-5deg); }
+        .group-hover\:rotate-y-\[0deg\]:hover { transform: rotateY(0deg); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>

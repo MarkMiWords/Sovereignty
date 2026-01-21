@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { queryPartner, smartSoap } from '../services/geminiService';
+import { queryPartner, smartSoap, articulateText } from '../services/geminiService';
 import { Message, Chapter, VaultStorage, VaultSheet } from '../types';
 import { readJson, writeJson } from '../utils/safeStorage';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
@@ -48,7 +48,12 @@ const AuthorBuilder: React.FC = () => {
   const [isProcessingArticulate, setIsProcessingArticulate] = useState(false);
   const [isProcessingPolish, setIsProcessingPolish] = useState(false);
 
+  // Articulate Calibration States
   const [gender, setGender] = useState('Neutral');
+  const [tone, setTone] = useState('Normal');
+  const [accent, setAccent] = useState('AU');
+  const [speed, setSpeed] = useState('1.0x');
+
   const [isDictating, setIsDictating] = useState(false);
   const [dictationTarget, setDictationTarget] = useState<'sheet' | 'partner' | null>(null);
   const sessionRef = useRef<any>(null);
@@ -155,6 +160,19 @@ const AuthorBuilder: React.FC = () => {
     } finally { setIsProcessingRevise(false); setIsProcessingPolish(false); }
   };
 
+  const handleArticulate = async () => {
+    if (!activeChapter.content?.trim()) return;
+    setIsProcessingArticulate(true);
+    try {
+      const result = await articulateText(activeChapter.content, { gender, tone, accent, speed }, style, region);
+      setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessingArticulate(false);
+    }
+  };
+
   const startDictation = async (target: 'sheet' | 'partner') => {
     if (isDictating) { stopDictation(); return; }
     setDictationTarget(target);
@@ -240,7 +258,7 @@ const AuthorBuilder: React.FC = () => {
         <div className="shrink-0 h-24 bg-black flex items-stretch border-b border-white/10 relative z-50">
             {/* Write - AMBER */}
             <div className={`flex-1 group/write relative cursor-pointer transition-all border-r border-white/5 ${isProcessingWrite ? 'bg-amber-500/10' : 'hover:bg-white/[0.02]'}`}>
-               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingWrite ? 'border-2 border-[var(--accent)] shadow-[inset_0_0_25px_var(--accent)]' : 'border border-transparent group-hover/write:border-[var(--accent)]/40'}`}></div>
+               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingWrite ? 'neon-border-amber' : 'border border-transparent group-hover/write:border-[var(--accent)]/40'}`}></div>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingWrite ? 'text-[var(--accent)] animate-industrial-pulse drop-shadow-[0_0_8px_var(--accent)]' : 'text-gray-700 group-hover/write:text-[var(--accent)] group-hover/write:drop-shadow-[0_0_12px_var(--accent)]'}`}>
                     <span className="text-xl">W</span>rite
@@ -257,7 +275,7 @@ const AuthorBuilder: React.FC = () => {
 
             {/* Revise - RED */}
             <div className={`flex-1 group/revise relative cursor-pointer transition-all border-r border-white/5 ${isProcessingRevise ? 'bg-red-900/10' : 'hover:bg-white/[0.02]'}`}>
-               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingRevise ? 'border-2 border-red-600 shadow-[inset_0_0_25px_rgba(220,38,38,0.6)]' : 'border border-transparent group-hover/revise:border-red-600/40'}`}></div>
+               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingRevise ? 'neon-border-red' : 'border border-transparent group-hover/revise:border-red-600/40'}`}></div>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingRevise ? 'text-red-500 animate-industrial-pulse drop-shadow-[0_0_8px_#dc2626]' : 'text-gray-700 group-hover/revise:text-red-500 group-hover/revise:drop-shadow-[0_0_12px_#dc2626]'}`}>
                     <span className="text-xl">R</span>evise
@@ -273,30 +291,69 @@ const AuthorBuilder: React.FC = () => {
 
             {/* Articulate - BLUE */}
             <div className={`flex-1 group/articulate relative cursor-pointer transition-all border-r border-white/5 ${isProcessingArticulate ? 'bg-blue-900/10' : 'hover:bg-white/[0.02]'}`}>
-               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingArticulate ? 'border-2 border-blue-500 shadow-[inset_0_0_25px_rgba(59,130,246,0.6)]' : 'border border-transparent group-hover/articulate:border-blue-500/40'}`}></div>
+               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingArticulate ? 'neon-border-blue' : 'border border-transparent group-hover/articulate:border-blue-500/40'}`}></div>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingArticulate ? 'text-blue-500 animate-industrial-pulse drop-shadow-[0_0_8px_#3b82f6]' : 'text-gray-700 group-hover/articulate:text-blue-500 group-hover/articulate:drop-shadow-[0_0_12px_#3b82f6]'}`}>
                     <span className="text-xl">A</span>rticulate
                   </span>
                </div>
-               <div className="absolute top-full left-0 w-72 bg-black border border-blue-500 shadow-[0_25px_60px_rgba(0,0,0,1)] z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 border-b border-white/5 transition-colors">Clone Voice</button>
-                  <div className="p-6 space-y-6 bg-black/40">
+               <div className="absolute top-full left-0 w-80 bg-black border border-blue-500 shadow-[0_25px_60px_rgba(0,0,0,1)] z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
+                  <div className="p-6 space-y-6 bg-black/90">
+                     <button className="w-full text-center py-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all rounded-sm">My Own Clone</button>
+                     
+                     {/* Gender Matrix */}
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Gender Matrix</p>
                         <div className="flex gap-2">
-                           <button onClick={() => setGender('Male')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === 'Male' ? 'bg-[#3498db] border-[#3498db] text-white shadow-[0_0_10px_#3498db]' : 'border-white/10 text-gray-600'}`}>M</button>
-                           <button onClick={() => setGender('Female')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === 'Female' ? 'bg-[#f95bf6] border-[#f95bf6] text-white shadow-[0_0_10px_#f95bf6]' : 'border-white/10 text-gray-600'}`}>F</button>
-                           <button onClick={() => setGender('Neutral')} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === 'Neutral' ? 'bg-white border-white text-black' : 'border-white/10 text-gray-600'}`}>N</button>
+                           {['Male', 'Female', 'Neutral'].map(g => (
+                              <button key={g} onClick={() => setGender(g)} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === g ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-white/10 text-gray-600 hover:text-white'}`}>{g[0]}</button>
+                           ))}
                         </div>
                      </div>
+
+                     {/* Tone Matrix */}
+                     <div className="space-y-3">
+                        <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Calibration Tone</p>
+                        <div className="flex gap-2">
+                           {['Soft', 'Normal', 'Loud'].map(t => (
+                              <button key={t} onClick={() => setTone(t)} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${tone === t ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-white/10 text-gray-600 hover:text-white'}`}>{t[0]}</button>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* Regional Accents */}
+                     <div className="space-y-3">
+                        <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Regional Accent</p>
+                        <div className="flex gap-2">
+                           {['AU', 'UK', 'US'].map(a => (
+                              <button key={a} onClick={() => setAccent(a)} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${accent === a ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-white/10 text-gray-600 hover:text-white'}`}>{a}</button>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* Temporal Speed */}
+                     <div className="space-y-3 border-b border-white/5 pb-6">
+                        <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Temporal Scale</p>
+                        <div className="flex gap-2">
+                           {['1.0x', '1.25x', '1.5x'].map(s => (
+                              <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${speed === s ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-white/10 text-gray-600 hover:text-white'}`}>{s}</button>
+                           ))}
+                        </div>
+                     </div>
+
+                     <button 
+                       onClick={handleArticulate}
+                       className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl"
+                     >
+                       Apply Transformation
+                     </button>
                   </div>
                </div>
             </div>
 
             {/* Polish - GREEN */}
             <div className={`flex-1 group/polish relative cursor-pointer transition-all ${isProcessingPolish ? 'bg-green-900/10' : 'hover:bg-white/[0.02]'}`}>
-               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingPolish ? 'border-2 border-green-500 shadow-[inset_0_0_25px_rgba(34,197,94,0.6)]' : 'border border-transparent group-hover/polish:border-green-500/40'}`}></div>
+               <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${isProcessingPolish ? 'neon-border-green' : 'border border-transparent group-hover/polish:border-green-500/40'}`}></div>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingPolish ? 'text-green-500 animate-industrial-pulse drop-shadow-[0_0_8px_#22c55e]' : 'text-gray-700 group-hover/polish:text-green-500 group-hover/polish:drop-shadow-[0_0_12px_#22c55e]'}`}>
                     <span className="text-xl">P</span>olish

@@ -9,6 +9,35 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
+export const articulateText = async (text: string, settings: { gender: string, tone: string, accent: string, speed: string }, style: string, region: string) => {
+  const ai = getAI();
+  const { gender, tone, accent, speed } = settings;
+  
+  const instruction = `
+    You are the ARTICULATE agent of the Sovereign Forge. 
+    MISSION: Transform the provided narrative to match a specific vocal and acoustic profile for oral storytelling.
+    
+    ACOUSTIC MATRIX:
+    - GENDER PROFILE: ${gender} (Adjust vocabulary and cadence to suit this identity)
+    - CALIBRATION TONE: ${tone} (Modify intensity and resonance)
+    - REGIONAL ACCENT: ${accent} (Integrate subtle dialect markers and regional idioms from ${region})
+    - TEMPORAL SPEED: ${speed} (Adjust sentence length and rhythm for this pacing)
+    - NARRATIVE STYLE: ${style}
+
+    CORE RULE: Do not sanitize the grit. Maintain the authentic carceral voice while optimizing for the selected acoustic profile.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: [{ role: 'user', parts: [{ text }] }],
+    config: {
+      systemInstruction: instruction,
+    }
+  });
+
+  return { text: response.text || "" };
+};
+
 export const smartSoap = async (text: string, level: string, style: string, region: string) => {
   const ai = getAI();
   
