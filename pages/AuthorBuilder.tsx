@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { queryPartner, smartSoap, articulateText } from '../services/geminiService';
+import { queryPartner, smartSoap, articulateText, connectLive } from '../services/geminiService';
 import { Message, Chapter, VaultStorage, VaultSheet } from '../types';
 import { readJson, writeJson } from '../utils/safeStorage';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import { LiveServerMessage } from '@google/genai';
 
 declare const mammoth: any;
 
@@ -143,7 +142,10 @@ const AuthorBuilder: React.FC = () => {
     try {
       const response = await queryPartner(finalMsg, style, region, messages, activeChapter.content);
       setMessages(prev => [...prev, response]);
-    } catch (err) { setMessages(prev => [...prev, { role: 'assistant', content: "Link Interrupted." }]); } 
+    } catch (err) { 
+      console.error(err);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Partner Link Interrupted. Checking Sovereign Registry..." }]); 
+    } 
     finally { 
       setIsPartnerLoading(false); 
       setTimeout(() => chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' }), 100);
@@ -157,6 +159,8 @@ const AuthorBuilder: React.FC = () => {
     try {
       const result = await smartSoap(activeChapter.content, level, style, region);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
+    } catch (err) {
+      console.error(err);
     } finally { setIsProcessingRevise(false); setIsProcessingPolish(false); }
   };
 
@@ -177,15 +181,14 @@ const AuthorBuilder: React.FC = () => {
     if (isDictating) { stopDictation(); return; }
     setDictationTarget(target);
     setIsDictating(true);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       audioContextRef.current = ctx;
       if (ctx.state === 'suspended') await ctx.resume();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true, autoGainControl: true } });
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        callbacks: {
+      
+      const sessionPromise = connectLive({
           onopen: () => {
             const source = ctx.createMediaStreamSource(stream);
             const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
@@ -207,21 +210,22 @@ const AuthorBuilder: React.FC = () => {
             }
           },
           onclose: () => setIsDictating(false),
-          onerror: () => stopDictation()
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          inputAudioTranscription: {},
-          systemInstruction: "Transcribe precisely."
-        }
-      });
+          onerror: (e: any) => {
+             console.error("Dictation Error", e);
+             stopDictation();
+          }
+        }, "Transcribe the author's spoken carceral narrative precisely. Do not sanitize slang.");
+      
       sessionRef.current = await sessionPromise;
-    } catch (err) { setIsDictating(false); }
+    } catch (err) { 
+      console.error(err);
+      setIsDictating(false); 
+    }
   };
 
   const stopDictation = () => {
-    if (sessionRef.current) sessionRef.current.close();
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (sessionRef.current) try { sessionRef.current.close(); } catch (e) {}
+    if (audioContextRef.current) try { audioContextRef.current.close(); } catch (e) {}
     setIsDictating(false);
     setDictationTarget(null);
   };

@@ -1,9 +1,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import { connectLive } from '../services/geminiService';
 import { writeJson, readJson } from '../utils/safeStorage';
 import { Chapter } from '../types';
+// Import LiveServerMessage from the SDK
+import { LiveServerMessage } from '@google/genai';
 
 // PCM Encoding Utility
 function encode(bytes: Uint8Array) {
@@ -64,7 +66,6 @@ const LiveSession: React.FC = () => {
     if (isActive) return;
     setIsConnecting(true);
     setStatus('Linking...');
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
     try {
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -84,9 +85,7 @@ const LiveSession: React.FC = () => {
         } 
       });
 
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        callbacks: {
+      const sessionPromise = connectLive({
           onopen: () => {
             setIsActive(true);
             setIsConnecting(false);
@@ -101,6 +100,7 @@ const LiveSession: React.FC = () => {
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputCtx.destination);
           },
+          // Fixed: LiveServerMessage type is now imported from @google/genai
           onmessage: async (msg: LiveServerMessage) => {
             const base64Audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio) {
@@ -120,24 +120,14 @@ const LiveSession: React.FC = () => {
             }
           },
           onclose: () => {
-            console.log('Session closed by peer');
             setIsActive(false);
             setStatus('Link Severed');
           },
-          onerror: (e) => {
+          onerror: (e: any) => {
             console.error('Live Link Error:', e);
             stopSession();
           },
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          inputAudioTranscription: {},
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-          },
-          systemInstruction: "G'day mate. You are a warm, helpful Australian partner. Your goal is to scribe their carceral story. Keep your responses concise so they can do the talking. Mention that you're ready to scribe their story into the Registry.",
-        },
-      });
+        }, "G'day mate. You are a warm, helpful Australian partner. Your goal is to scribe their carceral story. Keep your responses concise so they can do the talking. Mention that you're ready to scribe their story into the Registry.");
 
       sessionRef.current = await sessionPromise;
     } catch (err) {
@@ -202,7 +192,7 @@ const LiveSession: React.FC = () => {
           <div className="text-center space-y-12 animate-fade-in">
              <div className="space-y-4">
                 <span className="tracking-[0.8em] uppercase text-[10px] font-black block" style={{ color: 'var(--accent)' }}>Live Link v2.5</span>
-                <h1 className="text-6xl md:text-8xl font-serif font-black italic text-white tracking-tighter leading-none">Ready to <br/><span style={{ color: 'var(--accent)' }}>tell us a yarn?</span></h1>
+                <h1 className="text-6xl md:text-[6rem] lg:text-8xl font-serif font-black italic text-white tracking-tighter leading-none">Ready to <br/><span style={{ color: 'var(--accent)' }}>tell us a yarn?</span></h1>
                 <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-xl mx-auto">"Pull up a stump. I'm here to listen. Your story is ready to be scribed."</p>
              </div>
              <button 
