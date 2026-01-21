@@ -42,7 +42,7 @@ const WrapperInfo: React.FC = () => {
 
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
-  const [sigMode, setSigMode] = useState<'visual' | 'monospace'>('visual');
+  const [sigMode, setSigMode] = useState<'narrow' | 'box' | 'monospace'>('narrow');
   const visualSigRef = useRef<HTMLDivElement>(null);
 
   const saveProfile = () => {
@@ -79,12 +79,20 @@ URL: ACAPTIVEAUDIENCE.COM
       navigator.clipboard.writeText(sig);
     } else {
       if (visualSigRef.current) {
-        const range = document.createRange();
-        range.selectNode(visualSigRef.current);
-        window.getSelection()?.removeAllRanges();
-        window.getSelection()?.addRange(range);
-        document.execCommand('copy');
-        window.getSelection()?.removeAllRanges();
+        try {
+          // Select and copy rich text (HTML) for Outlook/Gmail
+          const range = document.createRange();
+          range.selectNode(visualSigRef.current);
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.execCommand('copy');
+            selection.removeAllRanges();
+          }
+        } catch (err) {
+          console.error("Signature copy failure:", err);
+        }
       }
     }
     setCopyStatus('copied');
@@ -95,7 +103,6 @@ URL: ACAPTIVEAUDIENCE.COM
 
   return (
     <div className="bg-[#050505] min-h-screen text-white pb-32 font-sans selection:bg-[var(--accent)]/30 overflow-x-hidden pt-24">
-      {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full" style={{ background: 'radial-gradient(circle_at_center, var(--accent-glow) 0%, transparent 70%)', opacity: 0.1 }}></div>
       </div>
@@ -125,7 +132,6 @@ URL: ACAPTIVEAUDIENCE.COM
               />
             </div>
 
-            {/* Vocal Intensity Slider */}
             <div className="space-y-10 p-10 bg-black border border-white/5 rounded-sm">
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-end">
@@ -155,7 +161,6 @@ URL: ACAPTIVEAUDIENCE.COM
             </div>
 
             <div className="grid md:grid-cols-2 gap-12">
-               {/* Themes */}
                <div className="space-y-6">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Chroma Calibration</label>
                   <div className="grid grid-cols-2 gap-4">
@@ -173,7 +178,6 @@ URL: ACAPTIVEAUDIENCE.COM
                   </div>
                </div>
 
-               {/* Fonts */}
                <div className="space-y-6">
                   <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Typography Registry</label>
                   <div className="grid grid-cols-2 gap-4">
@@ -201,35 +205,31 @@ URL: ACAPTIVEAUDIENCE.COM
           </div>
         </div>
 
-        {/* Signature Forge Tool */}
+        {/* Signature Forge Tool - UPDATED FOR NARROW VS BOX */}
         <div className="bg-[#050505] border border-white/5 p-10 lg:p-20 rounded-sm relative shadow-2xl overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-[0.02] text-8xl font-serif italic select-none">SIG</div>
           
           <div className="relative z-10 space-y-12">
             <div className="space-y-2">
               <span className="text-[9px] font-black uppercase tracking-[0.5em]" style={{ color: 'var(--accent)' }}>Media Assets</span>
-              <h2 className="text-3xl font-serif italic">Dispatch <span style={{ color: 'var(--accent)' }}>Signatures.</span></h2>
-              <p className="text-gray-500 text-sm italic font-light">One-click assets for your external correspondence.</p>
+              <h2 className="text-3xl font-serif italic">Signature <span style={{ color: 'var(--accent)' }}>Forge.</span></h2>
+              <p className="text-gray-500 text-sm italic font-light leading-relaxed">Narrow Horizontal is best for professional replies.</p>
             </div>
 
             <div className="flex gap-4 border-b border-white/5 pb-4">
-               <button 
-                 onClick={() => setSigMode('visual')}
-                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2`}
-                 style={sigMode === 'visual' ? { color: 'var(--accent)', borderBottomColor: 'var(--accent)' } : { color: '#444', borderBottomColor: 'transparent' }}
-               >
-                 Visual Mode
-               </button>
-               <button 
-                 onClick={() => setSigMode('monospace')}
-                 className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2`}
-                 style={sigMode === 'monospace' ? { color: 'var(--accent)', borderBottomColor: 'var(--accent)' } : { color: '#444', borderBottomColor: 'transparent' }}
-               >
-                 Monospace Mode
-               </button>
+               {['narrow', 'box', 'monospace'].map((mode) => (
+                 <button 
+                   key={mode}
+                   onClick={() => setSigMode(mode as any)}
+                   className={`text-[9px] font-black uppercase tracking-widest pb-2 transition-all border-b-2`}
+                   style={sigMode === mode ? { color: 'var(--accent)', borderBottomColor: 'var(--accent)' } : { color: '#444', borderBottomColor: 'transparent' }}
+                 >
+                   {mode === 'narrow' ? 'Narrow (Recommended)' : mode === 'box' ? 'Box' : 'Monospace'}
+                 </button>
+               ))}
             </div>
             
-            <div className="bg-black border border-white/10 p-12 rounded-sm shadow-inner group relative min-h-[220px] flex items-center justify-center">
+            <div className="bg-black border border-white/10 p-12 rounded-sm shadow-inner group relative min-h-[260px] flex items-center justify-center overflow-x-auto">
                {sigMode === 'monospace' ? (
                  <pre className="font-mono text-[10px] text-gray-400 leading-relaxed whitespace-pre-wrap">
 {`--------------------------------------------------
@@ -244,27 +244,47 @@ URL: ACAPTIVEAUDIENCE.COM
                ) : (
                  <div 
                    ref={visualSigRef} 
-                   className="flex items-center gap-10 text-left py-4"
-                   style={{ color: '#ffffff', fontFamily: "'Playfair Display', serif" }}
+                   className="flex transition-all duration-500"
+                   style={{ 
+                     color: '#ffffff', 
+                     fontFamily: "'Playfair Display', serif",
+                     flexDirection: sigMode === 'narrow' ? 'row' : 'column',
+                     alignItems: 'center',
+                     gap: sigMode === 'narrow' ? '40px' : '24px',
+                     textAlign: sigMode === 'narrow' ? 'left' : 'center'
+                   }}
                  >
-                    <div className="w-20 h-20 border-r border-white/10 pr-10 flex items-center">
+                    <div 
+                      className={`${sigMode === 'narrow' ? 'border-r pr-10' : 'border-b pb-6'}`}
+                      style={{ 
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        width: '300px', // Recommend export width
+                        display: 'flex',
+                        justifyContent: 'center'
+                      }}
+                    >
                        <Logo variant="light" className="w-full h-auto" />
                     </div>
                     <div className="space-y-1">
-                       <h4 className="text-2xl font-black italic tracking-tighter" style={{ color: '#ffffff' }}>{profile.name}</h4>
-                       <p className="text-[8px] font-bold uppercase tracking-[0.4em]" style={{ color: 'var(--accent)', fontFamily: "Inter, sans-serif" }}>Author // Sovereign Archive</p>
-                       <p className="text-[10px] text-gray-500 font-serif italic" style={{ fontFamily: "serif" }}>www.acaptiveaudience.com</p>
+                       <h4 className="text-2xl font-black italic tracking-tighter" style={{ color: '#ffffff', margin: 0 }}>{profile.name}</h4>
+                       <p className="text-[8px] font-black uppercase tracking-[0.4em]" style={{ color: 'var(--accent)', fontFamily: "Inter, sans-serif", margin: 0 }}>Author // Sovereign Archive</p>
+                       <p className="text-[10px] text-gray-500 font-serif italic" style={{ fontFamily: "serif", margin: 0 }}>www.acaptiveaudience.com</p>
                     </div>
                  </div>
                )}
             </div>
 
-            <button 
-              onClick={copySignature}
-              className={`w-full py-6 text-[10px] font-black uppercase tracking-[0.4em] transition-all border ${copyStatus === 'copied' ? 'bg-green-500 border-green-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}
-            >
-              {copyStatus === 'copied' ? 'Registry Logged' : `Copy ${sigMode === 'visual' ? 'Visual' : 'Monospace'} Signature`}
-            </button>
+            <div className="space-y-4">
+              <button 
+                onClick={copySignature}
+                className={`w-full py-6 text-[10px] font-black uppercase tracking-[0.4em] transition-all border ${copyStatus === 'copied' ? 'bg-green-500 border-green-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/30'}`}
+              >
+                {copyStatus === 'copied' ? 'Registry Logged' : `Copy ${sigMode.toUpperCase()} Signature`}
+              </button>
+              <p className="text-[8px] text-gray-700 font-bold text-center uppercase tracking-widest italic">
+                {sigMode === 'narrow' ? "Best for: Daily emails and long threads." : "Best for: Initial correspondence and announcements."}
+              </p>
+            </div>
           </div>
         </div>
       </section>

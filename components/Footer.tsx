@@ -46,6 +46,14 @@ const Footer: React.FC = () => {
                 </button>
               </li>
               <li><Link to="/blueprints" className="text-cyan-500/60 hover:text-cyan-400 transition-all uppercase tracking-[0.2em] font-black">Sovereign Blueprints</Link></li>
+              <li className="pt-4 border-t border-white/5 opacity-40">
+                <p className="text-[7px] text-gray-600 mb-1">Vercel Build Status</p>
+                <p className="text-[8px] text-green-500 flex items-center gap-2">
+                   <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                   Sync Active: Beta 4.1.2
+                </p>
+                <p className="text-[7px] text-gray-700 italic mt-2">Tip: Press Cmd+Shift+R to force latest build.</p>
+              </li>
             </ul>
 
             <h3 className="text-white font-bold mb-8 uppercase text-xs tracking-[0.3em]">Updates</h3>

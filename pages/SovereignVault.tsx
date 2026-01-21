@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { VaultStorage, VaultSheet, VaultAI, Book, VaultAudit, EfficiencyLog } from '../types';
+import { VaultStorage, VaultSheet, Book } from '../types';
 
 // --- Sovereign Vault Core V4 ---
 const VAULT_NAME = 'aca_sovereign_registry';
@@ -9,7 +9,7 @@ const VAULT_VERSION = 4;
 
 const SovereignVault: React.FC = () => {
   const navigate = useNavigate();
-  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'ai' | 'inbound' | 'stationery' | 'audits' | 'metrics'>('sheets');
+  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'technical' | 'metrics'>('sheets');
   const [isMetricsAuthorized, setIsMetricsAuthorized] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [authError, setAuthError] = useState(false);
@@ -81,31 +81,24 @@ const SovereignVault: React.FC = () => {
     }
   };
 
-  // HARDENED RESTORE LOGIC
   const restoreSheet = (sheet: VaultSheet) => {
     try {
-      // 1. Get and sanitize current registry
       let currentSheets = [];
-      const saved = localStorage.getItem('wrap_sheets_v4');
-      if (saved && saved !== "undefined" && saved !== "null") {
-        currentSheets = JSON.parse(saved);
-      }
+      const saved = localStorage.getItem('aca:v5:wrap_sheets_v4');
+      if (saved) currentSheets = JSON.parse(saved);
       
-      // 2. Prepare restored object with fresh ID
       const restoredSheet = { 
         ...sheet.data, 
         id: `restored-${Date.now()}`,
         title: (sheet.data.title || 'Restored Sheet')
       };
       
-      // 3. Prepend to front so user lands on this sheet
       const updatedRegistry = [restoredSheet, ...currentSheets];
-      localStorage.setItem('wrap_sheets_v4', JSON.stringify(updatedRegistry));
+      localStorage.setItem('aca:v5:wrap_sheets_v4', JSON.stringify(updatedRegistry));
       
       alert("Sheet Synchronized with Studio Registry.");
       navigate('/author-builder');
     } catch (e) {
-      console.error("Restore Protocol Failure:", e);
       alert("Sovereign Link Error: Data block corrupted during restore.");
     }
   };
@@ -157,6 +150,9 @@ const SovereignVault: React.FC = () => {
             <div className="text-left"><p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Block B</p><span className="text-[11px] font-black uppercase tracking-[0.2em]">The Bookshelf</span></div>
             <span className="text-[9px] font-bold px-3 py-1 bg-white/5 rounded-sm">{vault.books?.length || 0}</span>
           </button>
+          <button onClick={() => setActiveFolder('technical')} className={`w-full flex items-center justify-between p-8 transition-all border-l-4 ${activeFolder === 'technical' ? 'bg-blue-500/10 border-blue-500 text-blue-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
+            <div className="text-left"><p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Block C</p><span className="text-[11px] font-black uppercase tracking-[0.2em]">Technical Brief</span></div>
+          </button>
           <button onClick={() => setActiveFolder('metrics')} className={`w-full flex items-center justify-between p-8 transition-all border-l-4 ${activeFolder === 'metrics' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
             <div className="text-left"><p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Audit</p><span className="text-[11px] font-black uppercase tracking-[0.2em]">Efficiency</span></div>
           </button>
@@ -197,6 +193,39 @@ const SovereignVault: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeFolder === 'technical' && (
+            <div className="animate-fade-in space-y-12">
+               <div className="bg-[#0a0a0a] border border-blue-500/20 p-12 rounded-sm shadow-2xl">
+                  <h3 className="text-3xl font-serif italic text-white mb-6 underline decoration-blue-500/30 underline-offset-8">Server Briefing.</h3>
+                  <div className="grid md:grid-cols-2 gap-8 text-[11px] font-mono leading-relaxed text-gray-400">
+                     <div className="space-y-4">
+                        <p><span className="text-blue-500 font-black">SMTP:</span> server387.web-hosting.com</p>
+                        <p><span className="text-blue-500 font-black">PORT:</span> 465 (SSL/TLS)</p>
+                        <p><span className="text-blue-500 font-black">USER:</span> mark@acaptiveaudience.net</p>
+                     </div>
+                     <div className="space-y-4">
+                        <p><span className="text-blue-500 font-black">IMAP:</span> server387.web-hosting.com</p>
+                        <p><span className="text-blue-500 font-black">PORT:</span> 993 (SSL/TLS)</p>
+                        <p><span className="text-blue-500 font-black">AUTH:</span> Required (Password-based)</p>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="bg-red-900/5 border border-red-900/20 p-12 rounded-sm space-y-6">
+                  <h4 className="text-red-500 text-[10px] font-black uppercase tracking-widest">Acoustic Link: Google Bounce Fix</h4>
+                  <p className="text-gray-500 text-sm italic font-light leading-relaxed">
+                    If your mail bounces from Gmail, you MUST add these records in your hosting cPanel (Zone Editor):
+                  </p>
+                  <ul className="space-y-4 text-[10px] font-mono text-gray-400">
+                    <li className="flex items-start gap-4"><span className="text-white">SPF:</span> v=spf1 +a +mx +ip4:198.54.115.158 ~all</li>
+                    <li className="flex items-start gap-4"><span className="text-white">DKIM:</span> (Generated via cPanel > Email Deliverability)</li>
+                    <li className="flex items-start gap-4"><span className="text-white">DMARC:</span> v=DMARC1; p=none;</li>
+                  </ul>
+                  <p className="text-[8px] text-gray-700 uppercase font-black tracking-widest mt-6">Reference ID: RFC-7208 / SPF-REGISTRY</p>
+               </div>
             </div>
           )}
 
