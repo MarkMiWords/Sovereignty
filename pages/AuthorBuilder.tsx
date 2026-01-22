@@ -156,9 +156,12 @@ const AuthorBuilder: React.FC = () => {
     try {
       const response = await queryPartner(finalMsg, style, region, messages, activeChapter.content);
       setMessages(prev => [...prev, response]);
-    } catch (err) { 
-      console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Partner Link Interrupted. Checking Sovereign Registry..." }]); 
+    } catch (err: any) { 
+      console.error("Partner Chat Failure:", err);
+      const errorMessage = err.message?.includes("API_KEY_MISSING") 
+        ? "Partner Link Cold: Missing API Key. Check your 'Sovereign Vault' Technical Brief."
+        : "Partner Link Interrupted. Checking Sovereign Registry for connection issues...";
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMessage }]); 
     } 
     finally { 
       setIsPartnerLoading(false); 
@@ -436,8 +439,8 @@ const AuthorBuilder: React.FC = () => {
                 <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></div>
                 <h3 className="text-[11px] font-black uppercase tracking-[0.6em]" style={{ color: 'var(--accent)' }}>WRAP Partner</h3>
              </div>
-             <button onClick={() => navigate('/live-link')} className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.4em] border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm">
-                Live Link
+             <button onClick={() => navigate('/sovereign-vault')} className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.4em] border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm">
+                Diagnostics
              </button>
            </div>
         </div>

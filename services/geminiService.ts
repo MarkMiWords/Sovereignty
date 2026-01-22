@@ -3,11 +3,42 @@ import { Message, ManuscriptReport, MasteringGoal } from "../types";
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
 /**
- * SOVEREIGN AI BRIDGE v7.8 - HARDENED RESILIENCE MODE
- * Optimized for direct browser-to-model communication with deep error catching.
+ * SOVEREIGN AI BRIDGE v8.1 - HARDENED RESILIENCE
+ * Optimized for direct browser-to-model communication with deep diagnostic capabilities.
  */
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("API_KEY_MISSING: The Sovereign Engine requires an industrial API key to operate.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * Diagnostic Heartbeat
+ * Checks if the API key is present and attempts a minimal handshake.
+ */
+export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offline' | 'error', message: string }> => {
+  try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return { status: 'offline', message: "No API Key detected in environment." };
+    
+    const ai = getAI();
+    // Perform a tiny ping
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+      config: { maxOutputTokens: 5 }
+    });
+    
+    if (response.text) return { status: 'online', message: "Sovereign Link Established." };
+    return { status: 'error', message: "Empty response from engine." };
+  } catch (err: any) {
+    console.error("Heartbeat Failure:", err);
+    return { status: 'error', message: err.message || "Unknown connectivity error." };
+  }
+};
 
 export const articulateText = async (text: string, settings: { gender: string, tone: string, accent: string, speed: string }, style: string, region: string) => {
   try {
@@ -73,10 +104,9 @@ export const queryPartner = async (message: string, style: string, region: strin
   try {
     const ai = getAI();
     
-    // Sanitize and format history
     const contents = (history || [])
-      .filter(h => h && h.content) // Remove malformed entries
-      .slice(-10) // Keep history lean to prevent token overflow/interruption
+      .filter(h => h && h.content) 
+      .slice(-10) 
       .map((h: any) => ({
         role: h.role === 'user' ? 'user' : 'model',
         parts: [{ text: String(h.content || "") }]
@@ -112,10 +142,8 @@ export const queryPartner = async (message: string, style: string, region: strin
     };
   } catch (err: any) {
     console.error("Partner Failure:", err);
-    return { 
-      role: 'assistant', 
-      content: "Link Interrupted. This usually happens if the narrative context is too complex or a safety filter was triggered. Try a shorter query." 
-    };
+    // Throw error so AuthorBuilder can catch and handle globally
+    throw err;
   }
 };
 
