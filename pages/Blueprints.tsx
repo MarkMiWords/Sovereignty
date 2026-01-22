@@ -5,58 +5,64 @@ import { Link } from 'react-router-dom';
 const Blueprints: React.FC = () => {
   const sections = [
     {
-      id: "industrial-logic",
-      title: "Industrial Logic & UX",
+      id: "sovereign-spine",
+      title: "The Sovereign Spine (v5.5)",
       items: [
-        { name: "The 'Polish' Pivot", desc: "Transitioned from 'Produce' to 'Polish' to better reflect the alchemical transformation of raw carceral grit into refined legacy." },
-        { name: "Acoustic Feedback", desc: "Implemented high-intensity neon flashing for 'Revise' and 'Polish' blocks to provide immediate visual confirmation of AI thought processes." },
-        { name: "Registry Identifier Protocol", desc: "Docx import is set to detect the first H1 or H2 as the definitive title for the Sovereign Vault." }
+        { name: "Grit Sovereignty", desc: "Dialect and slang are treated as high-value assets, not errors. The engine is hard-coded to ignore standard grammar conventions that threaten the author's authentic regional yard-voice." },
+        { name: "Operational Security Layer", desc: "Automated redaction of PII (Personally Identifiable Information). Real names of COs, staff, facilities, or victims are flagged and substituted with realistic fictional pseudonyms." },
+        { name: "Author Primacy Protocol", desc: "The AI is a partner, not a professor. It never 'corrects' without context. All outputs are presented as 'Forged' suggestions where the author retains final sovereign approval." }
       ]
     },
     {
-      id: "polish-suite",
-      title: "The Polish Suite (Block P)",
+      id: "hierarchy-of-control",
+      title: "Mastering Suite: Levels of Control",
       items: [
         { 
-          name: "1. Polish the Story (Structure & Pacing)", 
-          desc: "Focus on the 'bones' before fine-tuning. Strengthen Character Arcs: Protagonist’s growth/mistakes must be visible. Tighten Dialogue: Remove 'small talk'; use only to reveal character or create tension. Evaluate Pacing: Balance turning points; avoid back-loading endings. Rule: Detach emotionally before editing." 
+          name: "L1: RINSE (Surface)", 
+          desc: "Gray Pulse Logic. Surface-level only. Fixes blatant typos and punctuation. Zero changes to sentence structure, slang, or cadence. Voice remains identical to the raw draft." 
         },
         { 
-          name: "2. Polish the Poetry (Sound & Form)", 
-          desc: "Precision and syllable weight. Read Aloud: Critical step to find rhythm breaks. Condense Language: Treat poems like a suitcase with a weight limit—every word must earn its place. Replace passive verbs with evocative actions (e.g., 'excoriate' instead of 'is'). structure experimentation required." 
+          name: "L2: WASH (Basic Flow)", 
+          desc: "Amber Glow Logic. Smooths awkward transitions and ensures consistent tense. Vocabulary and regional dialect are preserved 100% while improving basic readability." 
         },
         { 
-          name: "3. Polish the Imagery (Sensory Depth)", 
-          desc: "Transform flat descriptions into immersive experiences. Beyond Visuals: Ground scenes in smell, taste, and texture. Be Specific: Replace 'pie smelled good' with 'scent of warm apples and cinnamon'. Show, Don't Tell: Describe white knuckles and shallow breath rather than just 'terrified'. Use strategic, non-cliché metaphors." 
+          name: "L3: SCRUB (Structural Forging)", 
+          desc: "Red Flicker Logic. Moves paragraphs for better narrative impact. Tightens prose by removing redundant fillers. Enforces specific Style (Fiction/Memoir) constraints while maintaining 'Yard Grit'." 
         },
         { 
-          name: "4. Polish Subtext & Theme", 
-          desc: "Transforms simple narrative into lasting resonance. Layering Subtext: Characters say one thing but mean another; use body language and unspoken history. Motif & Symbolism: Refine recurring images into symbols (e.g., rain shifting from literal to inner cleansing). Theme Integration: Central message must be demonstrated through character flaws." 
+          name: "L4: POLISH (Literary Mastering)", 
+          desc: "Emerald Sine Logic. High-fidelity refinement. Adjusts the 'sound' for specific mediums (Substack vs. Paperback). Injects higher-intensity vocabulary while weighting transitions for maximum resonance." 
         },
         { 
-          name: "5. Polish a Turd (Deep Tissue)", 
-          desc: "Deep Tissue Revision for fundamentally weak drafts. Moving beyond proofreading to find the story's hidden core. If a user clicks this, they are signaling that they don't believe the draft is good and need the AI to rebuild it with intense literary transformation." 
+          name: "L5: ALCHEMICAL (Deep Tissue)", 
+          desc: "Neon Strobe Logic. Total reconstruction from the 'soul out'. Finds the hidden emotional core of a weak draft and rebuilds the structure using professional literary techniques while preserving the author's intended truth." 
         }
       ]
     },
     {
-      id: "acoustic-matrix",
-      title: "Acoustic Matrix (Articulate)",
+      id: "regional-matrix",
+      title: "Regional Context Matrix",
       items: [
-        { name: "Signature Hierarchy", desc: "'My Own Clone' sits at the pinnacle of the accent/voice dropdown once calibrated." },
-        { name: "Gender Matrix Colors", desc: "Neon Blue (M), Neon Pink (F), Industrial White (N)." },
-        { name: "Calibration Styles", desc: "Soft, Normal, Loud." },
-        { name: "Regional Accents", desc: "Australian, English, American." },
-        { name: "Temporal Calibration", desc: "Speeds: 1.0x, 1.25x, 1.5x." }
+        { name: "AU (Australia)", desc: "Focus on the 'Yard', 'The Wire', 'The Wallies'. Dry, rhythmic carceral cadence specific to Australian state-justice environments." },
+        { name: "US (North America)", desc: "State-specific dialects, 'The Feds', 'The County'. Legal terminology focused on Bail/Bond and US-centric facility structures." },
+        { name: "UK / Global", desc: "Focus on 'The Wing', 'The Landing', and 'Human Rights' grounding. Preserves the specific slang of the UK carceral system." }
       ]
     },
     {
-      id: "research-safety",
-      title: "Research, Safety & Privacy",
+      id: "acoustic-logic",
+      title: "Acoustic Profile (Articulate)",
       items: [
-        { name: "PII Audit", desc: "Automated scanning for names of staff, facilities, and victims to prevent defamation risks." },
-        { name: "Economy", desc: "$10 Sovereign Pass utility rate covers high-volume token overhead and 10GB secure vault storage." },
-        { name: "Business Philosophy", desc: "Author Direct Pay—platform takes 0% from author sales." }
+        { name: "Breath Logic", desc: "The engine specifically shortens sentence lengths for oral delivery to facilitate natural dramatic pauses and ease of breathing during storytelling sessions." },
+        { name: "Mouth-feel (Phonetics)", desc: "Favors plosive consonants (P, B, T, K) and evocative imagery that provides better sensory resonance when read aloud in a cell or stage setting." },
+        { name: "Clone Calibration", desc: "Mirrors the author's recorded frequency response. High-intensity matching of the author's specific speed (Aggressive/Fast vs. Reflective/Slow)." }
+      ]
+    },
+    {
+      id: "business-philosophy",
+      title: "Economic Sovereignty",
+      items: [
+        { name: "Author Direct Pay", desc: "0% Commission path. Authors keep 100% of their subscriber or retail revenue. The platform operates on a flat utility rate ($10) to cover token overhead." },
+        { name: "Archive Storage", desc: "10GB of immutable secure vault storage provided for every Sovereign Pass holder to ensure legacy persistence." }
       ]
     }
   ];
@@ -69,7 +75,7 @@ const Blueprints: React.FC = () => {
            <span className="text-cyan-500 tracking-[0.8em] uppercase text-[10px] font-black block">Clearance Level: ARCHITECT</span>
         </div>
         <h1 className="text-6xl md:text-9xl font-serif font-black italic text-white tracking-tighter leading-none mb-6 uppercase">SOVEREIGN <br/><span className="text-cyan-500">BLUEPRINTS.</span></h1>
-        <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"The master record of process, description, and industrial intent."</p>
+        <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-2xl">"The master record of process, description, and industrial intent. Reference v5.5."</p>
       </section>
 
       <div className="max-w-7xl mx-auto px-6 py-20">

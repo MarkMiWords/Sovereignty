@@ -1,19 +1,11 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const HUMANITARIAN_MISSION = `
-  MISSION: Sovereignty of the carceral voice.
-  VOICE PROTOCOL: Preserve unique dialect and grit. DO NOT sanitize emotional truth.
-  DIALOGUE INTEGRITY: Never rewrite spoken dialogue unless for punctuation.
-  LIMIT: 1,000 words per installment.
-`;
-
-const LEGAL_GUARDRAIL = `
-  STRICT LEGAL SAFETY PROTOCOL: 
-  You are auditing a carceral narrative. 
-  1. FLAG/REDACT real names of prison staff, police officers, or victims.
-  2. Protect the author from defamation risks. 
-  3. Ensure no PII (Personally Identifiable Information) is exposed.
+const SOVEREIGN_CORE = `
+  MISSION: Sovereignty of the carceral and impacted voice.
+  ROLE: You are the Sovereign Forge Engine.
+  RULE: Preserve dialect and grit. DO NOT sanitize emotional truth.
+  LEGAL SAFETY: Flag real names of staff or victims. Suggest pseudonyms.
 `;
 
 export default async function handler(req: any, res: any) {
@@ -28,31 +20,31 @@ export default async function handler(req: any, res: any) {
 
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "Sovereign Link Cold: API Key Missing" });
+    return res.status(500).json({ error: "API Key Missing" });
   }
-
-  const safeText = text.slice(0, 10000);
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    let system = HUMANITARIAN_MISSION;
+    let modeInstruction = "";
     
-    if (level === 'rinse') system += "\nMODE: Light Grammar and Punctuation ONLY. Maintain raw grit.";
-    else if (level === 'scrub') system += `\nMODE: Literary Polish. Elevate structure for ${style} in ${region}.`;
-    else if (level === 'fact_check') system += "\nMODE: Fact Check. Analyze for legal and factual claims.";
-    else if (level === 'sanitise') system += `\nMODE: SANITIZE. ${LEGAL_GUARDRAIL}`;
-    else system += `\nMODE: General Refinement for ${style}.`;
+    switch (level) {
+      case 'rinse': modeInstruction = "MODE: RINSE. Fix typos/punctuation ONLY. Keep voice identical."; break;
+      case 'scrub': modeInstruction = `MODE: SCRUB. Structural forging for ${style}. Maintain ${region} grit.`; break;
+      case 'fact_check': modeInstruction = "MODE: FACT CHECK. Audit for legal safety and factual grounding."; break;
+      case 'sanitise': modeInstruction = "MODE: SANITISE. Redact real names and PII. Maintain emotional honesty."; break;
+      case 'dogg_me': modeInstruction = "MODE: DOGG ME. Prose-to-Poetry alchemical transformation. Yard cadence."; break;
+      case 'polish_turd': modeInstruction = "MODE: POLISH A TURD. Deep tissue reconstruction. Rebuild soul out."; break;
+      default: modeInstruction = `General Mastering for ${style}.`;
+    }
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: safeText }] }],
-      config: { systemInstruction: system },
+      contents: [{ role: "user", parts: [{ text }] }],
+      config: { systemInstruction: `${SOVEREIGN_CORE}\n${modeInstruction}` },
     });
 
-    const resultText = response.text || safeText;
-    return res.status(200).json({ text: resultText });
+    return res.status(200).json({ text: response.text || text });
   } catch (error: any) {
-    console.error("API_SOAP_ERROR:", error);
-    return res.status(500).json({ error: `Polishing Failure: ${error.message || "Unknown error"}` });
+    return res.status(500).json({ error: error.message });
   }
 }

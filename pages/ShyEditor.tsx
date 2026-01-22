@@ -50,7 +50,8 @@ const ShyEditor: React.FC = () => {
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setIsLoading(true);
 
-    const partnerResponse = await queryPartner(userMsg, style, region, messages, activeSheet.content);
+    // Fix: Pass missing 'personality' argument ('Natural' as default)
+    const partnerResponse = await queryPartner(userMsg, style, region, messages, activeSheet.content, 'Natural');
     setMessages(prev => [...prev, partnerResponse]);
     setIsLoading(false);
   };

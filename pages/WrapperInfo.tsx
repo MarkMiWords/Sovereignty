@@ -10,12 +10,15 @@ const THEMES = [
   { id: 'emerald', name: 'Emerald (Growth)', color: '#2ecc71' }
 ];
 
+const PERSONALITIES = ['Timid', 'Cool', 'Mild', 'Natural', 'Wild', 'Firebrand'];
+
 const WrapperInfo: React.FC = () => {
   const [profile, setProfile] = useState(() => {
     return readJson<any>('aca_author_profile', {
       name: 'Architect',
       theme: 'amber',
-      fontIndex: 0
+      fontIndex: 0,
+      personalityIndex: 3 // Default: Natural
     });
   });
 
@@ -39,6 +42,8 @@ const WrapperInfo: React.FC = () => {
     setTimeout(() => setShowSavedToast(false), 3000);
   };
 
+  const currentPersonality = PERSONALITIES[profile.personalityIndex || 0];
+
   return (
     <div className="bg-[#050505] min-h-screen text-white pb-32 font-sans pt-24">
       <section className="max-w-4xl mx-auto px-6 py-12">
@@ -46,7 +51,7 @@ const WrapperInfo: React.FC = () => {
           ← Return to Studio
         </Link>
         <h1 className="text-6xl font-serif font-black italic text-white mb-6 uppercase">WRAP <span style={{ color: 'var(--accent)' }}>Profile.</span></h1>
-        <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-2xl">Manage your workspace identity and visual preferences.</p>
+        <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-2xl">Manage your workspace identity, personality matrix, and visual preferences.</p>
       </section>
 
       <section className="max-w-4xl mx-auto px-6 space-y-16">
@@ -61,6 +66,33 @@ const WrapperInfo: React.FC = () => {
                 className="w-full bg-transparent border-b border-white/10 pb-4 text-3xl font-serif italic outline-none focus:border-[var(--accent)] text-white transition-all" 
                 placeholder="Name..." 
               />
+            </div>
+
+            {/* Personality Slider */}
+            <div className="space-y-8 py-6">
+              <div className="flex justify-between items-end">
+                 <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Personality Matrix</label>
+                 <span className="text-[var(--accent)] font-serif italic text-2xl tracking-tighter animate-pulse">{currentPersonality}</span>
+              </div>
+              <div className="relative pt-2">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="5" 
+                  step="1"
+                  value={profile.personalityIndex || 0}
+                  onChange={(e) => setProfile({...profile, personalityIndex: parseInt(e.target.value)})}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                />
+                <div className="flex justify-between mt-4 text-[7px] font-black text-gray-700 uppercase tracking-widest">
+                   {PERSONALITIES.map((p, i) => (
+                     <span key={p} className={profile.personalityIndex === i ? 'text-[var(--accent)]' : ''}>{p}</span>
+                   ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-500 italic font-light leading-relaxed">
+                Determines the WRAPPER's temperament. <span className="text-white">Firebrand</span> will challenge your drafts aggressively; <span className="text-white">Timid</span> will prioritize safety and light touch.
+              </p>
             </div>
 
             <div className="space-y-6">

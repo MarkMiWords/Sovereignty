@@ -210,7 +210,8 @@ const WrapItUp: React.FC = () => {
     setIsPartnerLoading(true);
     try {
       const goalContext = `MASTERING_MODE: ${masteringGoal?.toUpperCase()}. `;
-      const response = await queryPartner(goalContext + userMsg, style, region, messages, activeChapter.content);
+      // Fix: Pass missing 'personality' argument ('Natural' as default)
+      const response = await queryPartner(goalContext + userMsg, style, region, messages, activeChapter.content, 'Natural');
       setMessages(prev => [...prev, response]);
     } finally {
       setIsPartnerLoading(false);

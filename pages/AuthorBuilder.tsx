@@ -10,13 +10,14 @@ declare const mammoth: any;
 
 const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Story', 'Sad Story', 'Tragic Story', 'Life Story'];
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
+const PERSONALITIES = ['Timid', 'Cool', 'Mild', 'Natural', 'Wild', 'Firebrand'];
 
 const DEFAULT_CHAPTER: Chapter = { id: '1', title: "", content: '', order: 0, media: [], subChapters: [] };
 
 const CALIBRATION_SCRIPTS = [
-  { id: '1', text: "My story is my truth. No one else can tell it for me." },
-  { id: '2', text: "The walls are concrete, but my words can cross the wire." },
-  { id: '3', text: "I am writing my legacy one page at a time." }
+  { id: '1', text: "My story is my truth. No one else can tell it for me. I am building my legacy one page at a time." },
+  { id: '2', text: "The walls are concrete, but my words can cross the wire. I am forging meaning from the friction of the system." },
+  { id: '3', text: "Identity is the first thing they try to take, and the last thing we will ever give up. I reclaim my voice." }
 ];
 
 function encode(bytes: Uint8Array) {
@@ -57,9 +58,17 @@ const AuthorBuilder: React.FC = () => {
   
   const [isProcessingWrite, setIsProcessingWrite] = useState(false);
   const [isProcessingRevise, setIsProcessingRevise] = useState(false);
-  const [isProcessingArticulate, setIsProcessingArticulate] = useState(false);
+  const [isProcessingSpeak, setIsProcessingSpeak] = useState(false);
   const [isProcessingPolish, setIsProcessingPolish] = useState(false);
   const [isAcousticActive, setIsAcousticActive] = useState(false);
+
+  // CONTEXT PERSISTENCE
+  const [style, setStyle] = useState(() => readJson<any>('aca_author_profile', {}).motivation || STYLES[2]);
+  const [region, setRegion] = useState(() => readJson<any>('aca_author_profile', {}).region || REGIONS[1]);
+  const [personality, setPersonality] = useState(() => {
+    const profile = readJson<any>('aca_author_profile', { personalityIndex: 3 });
+    return PERSONALITIES[profile.personalityIndex] || 'Natural';
+  });
 
   const [gender, setGender] = useState('Neutral');
   const [tone, setTone] = useState('Normal');
@@ -76,12 +85,13 @@ const AuthorBuilder: React.FC = () => {
   const sessionRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const profile = readJson<any>('aca_author_profile', { motivation: 'Prison Life', region: 'Australia' });
-  const [style] = useState(profile.motivation || STYLES[2]); 
-  const [region] = useState(profile.region || REGIONS[1]);
-
   const activeChapter = chapters.find(c => c.id === activeChapterId) || chapters[0] || DEFAULT_CHAPTER;
   const wordCount = activeChapter.content.split(/\s+/).filter(Boolean).length;
+
+  useEffect(() => {
+    const profile = readJson<any>('aca_author_profile', {});
+    writeJson('aca_author_profile', { ...profile, motivation: style, region });
+  }, [style, region]);
 
   useEffect(() => {
     if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
@@ -166,7 +176,8 @@ const AuthorBuilder: React.FC = () => {
     setMessages(prev => [...prev, { role: 'user', content: finalMsg }]);
     setIsPartnerLoading(true);
     try {
-      const response = await queryPartner(finalMsg, style, region, messages, activeChapter.content);
+      // Logic binding: Pass personality to the service
+      const response = await queryPartner(finalMsg, style, region, messages, activeChapter.content, personality);
       setMessages(prev => [...prev, response]);
     } catch (err: any) { 
       setMessages(prev => [...prev, { role: 'assistant', content: "Problem connecting. Check your files in The Big House." }]); 
@@ -182,7 +193,7 @@ const AuthorBuilder: React.FC = () => {
     if (block === 'revise') setIsProcessingRevise(true);
     else setIsProcessingPolish(true);
     try {
-      const result = await smartSoap(activeChapter.content, level, style, region);
+      const result = await smartSoap(activeChapter.content, level, style, region, personality);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
     } catch (err: any) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Problem polishing. Check your files in The Big House." }]);
@@ -214,23 +225,50 @@ const AuthorBuilder: React.FC = () => {
     } catch (e) { setIsAcousticActive(false); }
   };
 
-  const handleArticulate = async () => {
+  const handleSpeak = async () => {
     if (!activeChapter.content?.trim()) return;
-    setIsProcessingArticulate(true);
+    setIsProcessingSpeak(true);
     try {
-      const result = await articulateText(activeChapter.content, { gender, tone, accent, speed, isClone: isCloneActive }, style, region);
+      const result = await articulateText(activeChapter.content, { gender, tone, accent, speed, isClone: isCloneActive }, style, region, personality);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
       const voice = isCloneActive ? 'Zephyr' : (gender === 'Female' ? 'Puck' : 'Kore');
       const audioBase64 = await generateSpeech(result.text.substring(0, 600), voice);
       await playSpeech(audioBase64);
     } catch (err: any) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Problem reading aloud." }]);
-    } finally { setIsProcessingArticulate(false); }
+    } finally { setIsProcessingSpeak(false); }
   };
 
   const startCalibration = async () => {
     if (!isCloneCalibrated) setShowCalibrationModal(true);
     else setIsCloneActive(!isCloneActive);
+  };
+
+  const performCalibration = async () => {
+    setCalibrationProgress(1);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const totalDuration = 45000; 
+      const intervalTime = 500;
+      const step = (intervalTime / totalDuration) * 100;
+      const interval = setInterval(() => {
+        setCalibrationProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            stream.getTracks().forEach(t => t.stop());
+            writeJson('aca_clone_calibrated', true);
+            setIsCloneCalibrated(true);
+            setIsCloneActive(true);
+            setShowCalibrationModal(false);
+            return 100;
+          }
+          return Math.min(prev + step, 100);
+        });
+      }, intervalTime);
+    } catch (e) {
+      alert("Microphone required for learning voice.");
+      setShowCalibrationModal(false);
+    }
   };
 
   const startDictation = async (target: 'sheet' | 'partner') => {
@@ -252,6 +290,7 @@ const AuthorBuilder: React.FC = () => {
               sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
             };
             source.connect(scriptProcessor);
+            // Fix: Use 'ctx' instead of undefined 'inputCtx'
             scriptProcessor.connect(ctx.destination);
           },
           onmessage: (msg: LiveServerMessage) => {
@@ -263,7 +302,7 @@ const AuthorBuilder: React.FC = () => {
           },
           onclose: () => setIsDictating(false),
           onerror: () => stopDictation()
-        }, "Scribe accurately.");
+        }, `Scribe accurately. The author is writing ${style} in ${region}. The current engine temperament is ${personality}.`);
       sessionRef.current = await sessionPromise;
     } catch (err: any) { setIsDictating(false); alert("Microphone access failed."); }
   };
@@ -309,10 +348,10 @@ const AuthorBuilder: React.FC = () => {
 
       <main className="flex-grow flex flex-col relative overflow-hidden bg-[#020202]">
         <div className="shrink-0 h-24 bg-black flex items-stretch border-b border-white/10 relative z-50">
-            {/* Write */}
+            {/* 4-BLOCK HUB */}
             <div className={`flex-1 group/write relative cursor-pointer transition-all border-r border-white/5 ${isProcessingWrite ? 'bg-amber-500/10' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
-                  <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingWrite ? 'text-[var(--accent)]' : 'text-gray-700 group-hover/write:text-[var(--accent)]'}`}>
+                  <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingWrite ? 'text-[var(--accent)]' : 'text-gray-700 group-hover/write:text-[var(--accent)]'}`}>
                     Write
                   </span>
                </div>
@@ -324,10 +363,9 @@ const AuthorBuilder: React.FC = () => {
                </div>
             </div>
 
-            {/* Revise */}
             <div className={`flex-1 group/revise relative cursor-pointer transition-all border-r border-white/5 ${isProcessingRevise ? 'bg-red-900/10' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
-                  <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingRevise ? 'text-red-500' : 'text-gray-700 group-hover/revise:text-red-500'}`}>
+                  <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingRevise ? 'text-red-500' : 'text-gray-700 group-hover/revise:text-red-500'}`}>
                     Revise
                   </span>
                </div>
@@ -339,17 +377,16 @@ const AuthorBuilder: React.FC = () => {
                </div>
             </div>
 
-            {/* Articulate -> Speak */}
-            <div className={`flex-1 group/articulate relative cursor-pointer transition-all border-r border-white/5 ${isProcessingArticulate ? 'bg-blue-900/10' : 'hover:bg-white/[0.02]'}`}>
+            <div className={`flex-1 group/articulate relative cursor-pointer transition-all border-r border-white/5 ${isProcessingSpeak ? 'bg-blue-900/10' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
-                  <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingArticulate ? 'text-blue-500' : 'text-gray-700 group-hover/articulate:text-blue-500'}`}>
+                  <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingSpeak ? 'text-blue-500' : 'text-gray-700 group-hover/articulate:text-blue-500'}`}>
                     Speak
                   </span>
                </div>
                <div className="absolute top-full left-0 w-80 bg-black border border-blue-500 shadow-2xl z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <div className="p-6 space-y-6 bg-black/90">
                      <button onClick={startCalibration} className={`w-full text-center py-3 border text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${isCloneActive ? 'bg-blue-500 border-blue-500 text-white' : 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500 hover:text-white'}`}>
-                        {isCloneCalibrated ? (isCloneActive ? 'My Voice: ON' : 'Use My Voice') : 'Record My Voice'}
+                        {isCloneCalibrated ? (isCloneActive ? 'Voice: ON' : 'Use My Voice') : 'Record My Voice'}
                      </button>
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Type</p>
@@ -367,17 +404,16 @@ const AuthorBuilder: React.FC = () => {
                            ))}
                         </div>
                      </div>
-                     <button onClick={handleArticulate} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl">
-                       {isAcousticActive ? 'Reading...' : 'Read Aloud'}
+                     <button onClick={handleSpeak} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl">
+                       Read Aloud
                      </button>
                   </div>
                </div>
             </div>
 
-            {/* Polish */}
             <div className={`flex-1 group/polish relative cursor-pointer transition-all ${isProcessingPolish ? 'bg-green-900/10' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
-                  <span className={`text-[13px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingPolish ? 'text-green-500' : 'text-gray-700 group-hover/polish:text-green-500'}`}>
+                  <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingPolish ? 'text-green-500' : 'text-gray-700 group-hover/polish:text-green-500'}`}>
                     Polish
                   </span>
                </div>
@@ -415,7 +451,14 @@ const AuthorBuilder: React.FC = () => {
 
         <div className="h-10 px-12 bg-black border-t border-white/10 flex justify-between items-center text-[8px] font-black uppercase tracking-[0.4em] text-gray-800">
            <div className="flex gap-12 items-center">
-              <span>Words: {wordCount}</span>
+              <span className="flex items-center gap-2">
+                 <span className="text-gray-600">Words:</span> {wordCount}
+              </span>
+              <div className="h-3 w-[1px] bg-white/5"></div>
+              <span className="flex items-center gap-2">
+                 <span className="text-gray-600">Personality:</span> <span className="text-[var(--accent)] animate-pulse">{personality}</span>
+              </span>
+              <div className="h-3 w-[1px] bg-white/5"></div>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-cyan-500 shadow-[0_0_8px_#06b6d4]'}`}></div>
                 <span className={`text-[7px] font-bold ${isSaving ? 'text-amber-500' : 'text-cyan-500'}`}>{isSaving ? 'SAVING...' : 'SECURED'}</span>
@@ -435,6 +478,22 @@ const AuthorBuilder: React.FC = () => {
              <button onClick={() => navigate('/live-link')} className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.4em] border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm">
                 LIVE LINK
              </button>
+        </div>
+
+        {/* INTELLIGENCE CONTROLS */}
+        <div className="px-10 py-6 border-b border-white/5 bg-white/[0.01] grid grid-cols-2 gap-6">
+           <div className="space-y-1">
+              <p className="text-[7px] font-black text-orange-500 uppercase tracking-widest">Story Type</p>
+              <select value={style} onChange={(e) => setStyle(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
+                 {STYLES.map(s => <option key={s} value={s} className="bg-black">{s}</option>)}
+              </select>
+           </div>
+           <div className="space-y-1">
+              <p className="text-[7px] font-black text-orange-500 uppercase tracking-widest">Region</p>
+              <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
+                 {REGIONS.map(r => <option key={r} value={r} className="bg-black">{r}</option>)}
+              </select>
+           </div>
         </div>
 
         <div ref={chatContainerRef} className="flex-grow overflow-y-auto p-12 space-y-12 custom-scrollbar bg-black/40">
@@ -476,7 +535,7 @@ const AuthorBuilder: React.FC = () => {
                 </div>
                 <div className="space-y-6 pt-4">
                   {calibrationProgress === 0 ? (
-                    <button onClick={() => setCalibrationProgress(1)} className="w-full py-6 bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.5em] rounded-sm">Start Recording</button>
+                    <button onClick={performCalibration} className="w-full py-6 bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.5em] rounded-sm">Start Recording</button>
                   ) : (
                     <div className="space-y-4">
                        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-blue-500"><span>Learning...</span><span>{Math.round(calibrationProgress)}%</span></div>
