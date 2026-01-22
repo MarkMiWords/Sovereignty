@@ -108,25 +108,44 @@ const SovereignVault: React.FC = () => {
           {activeFolder === 'technical' && (
             <div className="space-y-8 animate-fade-in">
                <div className="bg-[#0a0a0a] border border-blue-500/20 p-10 rounded-sm shadow-2xl">
-                  <h3 className="text-2xl font-serif italic text-white mb-6">Email Deliverability Brief</h3>
-                  <p className="text-gray-500 text-sm mb-8 italic leading-relaxed">Copy these records into your cPanel Zone Editor to authorize your domain for Gmail.</p>
+                  <h3 className="text-2xl font-serif italic text-white mb-4">Email Deliverability Action Plan</h3>
+                  <div className="bg-red-500/10 border border-red-500/20 p-6 mb-8 rounded-sm">
+                     <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mb-2">Issue: Hotmail Rejection (5.7.1)</p>
+                     <p className="text-gray-400 text-xs italic">Hotmail is rejecting acaptiveaudience.net because your domain identity is not "Strongly Asserted." Update your cPanel Zone Editor with these exact values.</p>
+                  </div>
+                  
                   <div className="space-y-6 text-[11px] font-mono leading-relaxed text-gray-400">
                      <div className="p-4 bg-black border border-white/5 rounded-sm">
-                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">SPF RECORD (TXT):</p>
-                        <p className="select-all">v=spf1 +a +mx +ip4:198.54.115.158 ~all</p>
+                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase flex items-center gap-2">
+                           SPF RECORD (CRITICAL FIX)
+                           <span className="text-[8px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">Use Hard Fail</span>
+                        </p>
+                        <p className="select-all">v=spf1 +a +mx +ip4:198.54.115.158 -all</p>
+                        <p className="mt-2 text-[9px] text-gray-600 italic">Note: Changed ~all to -all to satisfy Microsoft security policies.</p>
                      </div>
+
                      <div className="p-4 bg-black border border-white/5 rounded-sm">
-                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">DMARC RECORD (TXT):</p>
-                        <p className="select-all">v=DMARC1; p=none;</p>
+                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">DMARC RECORD (STRICT)</p>
+                        <p className="select-all">v=DMARC1; p=quarantine; pct=100; adkim=s; aspf=s;</p>
+                        <p className="mt-2 text-[9px] text-gray-600 italic">This tells Hotmail to quarantine (spam) instead of rejecting if a check fails, while asserting strong alignment.</p>
                      </div>
+
                      <div className="p-4 bg-black border border-white/5 rounded-sm">
-                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">DKIM RECORD:</p>
-                        <p className="italic opacity-60">Generate this via "Email Deliverability" in your cPanel dashboard for acaptiveaudience.net</p>
+                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">DKIM AUTHENTICATION</p>
+                        <p className="italic opacity-60">1. Log into cPanel. 2. Search "Email Deliverability". 3. Click "Manage" for acaptiveaudience.net. 4. Copy the "DKIM" key provided by the server and add it as a TXT record.</p>
                      </div>
+
                      <div className="p-4 bg-black border border-white/5 rounded-sm">
-                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">SMTP RELAY:</p>
+                        <p className="text-blue-500 font-black mb-1 tracking-widest uppercase">SMTP CONNECTION</p>
                         <p>Host: server387.web-hosting.com | Port: 465 (SSL)</p>
                      </div>
+                  </div>
+
+                  <div className="mt-10 pt-10 border-t border-white/5">
+                     <h4 className="text-white font-serif italic text-lg mb-4 text-center">Why did it fail?</h4>
+                     <p className="text-gray-500 text-xs italic leading-relaxed text-center max-w-lg mx-auto">
+                        "Hotmail uses a reputation filter called SmartScreen. If your SPF record says 'maybe' (~all) instead of 'definitely' (-all), and you have no DKIM signature, it treats your narrative as untrusted. These updates assert your Sovereignty."
+                     </p>
                   </div>
                </div>
             </div>
