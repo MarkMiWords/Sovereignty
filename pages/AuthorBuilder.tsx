@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { queryPartner, smartSoap, articulateText, connectLive } from '../services/geminiService';
+import { useNavigate, Link } from 'react-router-dom';
+import { queryPartner, smartSoap, articulateText, connectLive, generateSpeech } from '../services/geminiService';
 import { Message, Chapter, VaultStorage, VaultSheet } from '../types';
 import { readJson, writeJson } from '../utils/safeStorage';
 import { LiveServerMessage } from '@google/genai';
@@ -12,6 +12,19 @@ const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Sto
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
 
 const DEFAULT_CHAPTER: Chapter = { id: '1', title: "", content: '', order: 0, media: [], subChapters: [] };
+
+const CALIBRATION_SCRIPTS = [
+  {
+    id: 'sovereignty',
+    title: 'The Rebellion Protocol',
+    text: "The only way to deal with an unfree world is to become so absolutely free that your very existence is an act of rebellion. My story is my truth, and my truth is my sovereignty."
+  },
+  {
+    id: 'architect',
+    title: 'The Architect\'s Script',
+    text: "They build walls to contain bodies, but they haven't built a wall yet that can contain a story. I am the architect of my own legacy, forging meaning from the friction of the system."
+  }
+];
 
 function encode(bytes: Uint8Array) {
   let binary = '';
@@ -49,12 +62,18 @@ const AuthorBuilder: React.FC = () => {
   const [isProcessingRevise, setIsProcessingRevise] = useState(false);
   const [isProcessingArticulate, setIsProcessingArticulate] = useState(false);
   const [isProcessingPolish, setIsProcessingPolish] = useState(false);
+  const [isAcousticActive, setIsAcousticActive] = useState(false);
 
   // Articulate Calibration States
   const [gender, setGender] = useState('Neutral');
   const [tone, setTone] = useState('Normal');
   const [accent, setAccent] = useState('AU');
   const [speed, setSpeed] = useState('1.0x');
+  const [isCloneActive, setIsCloneActive] = useState(false);
+  const [isCloneCalibrated, setIsCloneCalibrated] = useState(() => readJson<boolean>('aca_clone_calibrated', false));
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  const [calibrationProgress, setCalibrationProgress] = useState(0);
+  const [activeScriptIndex, setActiveScriptIndex] = useState(0);
 
   const [isDictating, setIsDictating] = useState(false);
   const [dictationTarget, setDictationTarget] = useState<'sheet' | 'partner' | null>(null);
@@ -158,7 +177,7 @@ const AuthorBuilder: React.FC = () => {
       setMessages(prev => [...prev, response]);
     } catch (err: any) { 
       console.error("Partner Chat Failure:", err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Link Interrupted. Diagnostic: ${err.message}` }]); 
+      setMessages(prev => [...prev, { role: 'assistant', content: `Partner Link Failure. Diagnostic: ${err.message || 'Catastrophic Engine Delay'}` }]); 
     } 
     finally { 
       setIsPartnerLoading(false); 
@@ -175,10 +194,40 @@ const AuthorBuilder: React.FC = () => {
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
     } catch (err: any) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Forge Failure during ${level.toUpperCase()}. Protocol Error: ${err.message}` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `Forge Failure during ${level.toUpperCase()}. Diagnostic: ${err.message}` }]);
     } finally { 
        setIsProcessingRevise(false); 
        setIsProcessingPolish(false); 
+    }
+  };
+
+  // AUDIO UTILITIES
+  const decodeAudioData = async (base64: string, ctx: AudioContext): Promise<AudioBuffer> => {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+    const dataInt16 = new Int16Array(bytes.buffer);
+    const frameCount = dataInt16.length;
+    const buffer = ctx.createBuffer(1, frameCount, 24000);
+    const channelData = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i] / 32768.0;
+    return buffer;
+  };
+
+  const playSpeech = async (base64: string) => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      if (ctx.state === 'suspended') await ctx.resume();
+      const buffer = await decodeAudioData(base64, ctx);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.onended = () => setIsAcousticActive(false);
+      setIsAcousticActive(true);
+      source.start();
+    } catch (e) {
+      console.error("Playback Failure:", e);
+      setIsAcousticActive(false);
     }
   };
 
@@ -186,13 +235,57 @@ const AuthorBuilder: React.FC = () => {
     if (!activeChapter.content?.trim()) return;
     setIsProcessingArticulate(true);
     try {
-      const result = await articulateText(activeChapter.content, { gender, tone, accent, speed }, style, region);
+      const result = await articulateText(activeChapter.content, { gender, tone, accent, speed, isClone: isCloneActive }, style, region);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
+      
+      const voice = isCloneActive ? 'Zephyr' : (gender === 'Female' ? 'Puck' : 'Kore');
+      const audioBase64 = await generateSpeech(result.text.substring(0, 600), voice);
+      await playSpeech(audioBase64);
     } catch (err: any) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Acoustic Transformation Failure. Protocol Error: ${err.message}` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `Acoustic Transformation Failure. Diagnostic: ${err.message}` }]);
     } finally {
       setIsProcessingArticulate(false);
+    }
+  };
+
+  const startCalibration = async () => {
+    if (!isCloneCalibrated) setShowCalibrationModal(true);
+    else setIsCloneActive(!isCloneActive);
+  };
+
+  const flipScript = () => {
+    setActiveScriptIndex((prev) => (prev + 1) % CALIBRATION_SCRIPTS.length);
+  };
+
+  const performCalibration = async () => {
+    setCalibrationProgress(1);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      // Sequence increased to 45 seconds for high-fidelity character extraction
+      const totalDuration = 45000; 
+      const intervalTime = 500;
+      const step = (intervalTime / totalDuration) * 100;
+      
+      const interval = setInterval(() => {
+        setCalibrationProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            stream.getTracks().forEach(t => t.stop());
+            ctx.close();
+            writeJson('aca_clone_calibrated', true);
+            setIsCloneCalibrated(true);
+            setIsCloneActive(true);
+            setShowCalibrationModal(false);
+            return 100;
+          }
+          return Math.min(prev + step, 100);
+        });
+      }, intervalTime);
+    } catch (e) {
+      alert("Calibration failed: Mic access required.");
+      setShowCalibrationModal(false);
     }
   };
 
@@ -242,7 +335,7 @@ const AuthorBuilder: React.FC = () => {
     } catch (err) { 
       console.error(err);
       setIsDictating(false); 
-      alert("Microphone Access Denied. Check browser permissions.");
+      alert("Microphone Access Denied.");
     }
   };
 
@@ -256,10 +349,14 @@ const AuthorBuilder: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden">
       <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20">
-        <div className="px-8 mb-6">
+        <div className="px-8 mb-6 space-y-4">
            <button onClick={handleNewSheet} className="w-full py-3 animate-living-amber-bg text-white text-[9px] font-black uppercase tracking-[0.4em] hover:brightness-110 transition-all shadow-xl rounded-sm">
              + New Sheet
            </button>
+           <Link to="/live-protocol" className="w-full py-3 border border-[var(--accent)]/40 text-[var(--accent)] text-[9px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm">
+             <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></div>
+             LIVE LINK
+           </Link>
         </div>
         <div className="px-8 py-5 bg-white/5 border-y border-white/10 flex flex-col gap-1" style={{ borderLeft: '4px solid var(--accent)' }}>
           <span className="text-[7px] font-black uppercase tracking-widest" style={{ color: 'var(--accent)' }}>Currently Editing</span>
@@ -326,7 +423,9 @@ const AuthorBuilder: React.FC = () => {
                </div>
                <div className="absolute top-full left-0 w-80 bg-black border border-blue-500 shadow-[0_25px_60px_rgba(0,0,0,1)] z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <div className="p-6 space-y-6 bg-black/90">
-                     <button className="w-full text-center py-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all rounded-sm">My Own Clone</button>
+                     <button onClick={startCalibration} className={`w-full text-center py-3 border text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${isCloneActive ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500 hover:text-white'}`}>
+                        {isCloneCalibrated ? (isCloneActive ? 'Clone Voice: Active' : 'Engage My Own Clone') : 'Calibrate My Own Clone'}
+                     </button>
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Gender Matrix</p>
                         <div className="flex gap-2">
@@ -351,15 +450,16 @@ const AuthorBuilder: React.FC = () => {
                            ))}
                         </div>
                      </div>
-                     <div className="space-y-3 border-b border-white/5 pb-6">
-                        <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Temporal Scale</p>
-                        <div className="flex gap-2">
-                           {['1.0x', '1.25x', '1.5x'].map(s => (
-                              <button key={s} onClick={() => setSpeed(s)} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${speed === s ? 'bg-blue-500 border-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-white/10 text-gray-600 hover:text-white'}`}>{s}</button>
-                           ))}
-                        </div>
-                     </div>
-                     <button onClick={handleArticulate} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl">Apply Transformation</button>
+                     <button onClick={handleArticulate} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl relative overflow-hidden">
+                       {isAcousticActive ? (
+                         <div className="flex items-center justify-center gap-2">
+                            <div className="w-1 h-3 bg-white animate-pulse"></div>
+                            <div className="w-1 h-5 bg-white animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-1 h-3 bg-white animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                            <span>AUDITIONING...</span>
+                         </div>
+                       ) : 'Apply Transformation'}
+                     </button>
                   </div>
                </div>
             </div>
@@ -430,8 +530,9 @@ const AuthorBuilder: React.FC = () => {
                 <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></div>
                 <h3 className="text-[11px] font-black uppercase tracking-[0.6em]" style={{ color: 'var(--accent)' }}>WRAP Partner</h3>
              </div>
-             <button onClick={() => navigate('/sovereign-vault')} className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.4em] border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm">
-                Diagnostics
+             <button onClick={() => navigate('/live-link')} className="px-4 py-2 text-[8px] font-black uppercase tracking-[0.4em] border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-[var(--accent)] animate-pulse"></div>
+                LIVE LINK
              </button>
            </div>
         </div>
@@ -460,6 +561,60 @@ const AuthorBuilder: React.FC = () => {
             </button>
          </form>
       </aside>
+
+      {/* CLONE CALIBRATION MODAL */}
+      {showCalibrationModal && (
+        <div className="fixed inset-0 z-[5000] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-6">
+           <div className="max-w-2xl w-full bg-[#0a0a0a] border border-blue-500/30 p-12 rounded-sm shadow-[0_0_100px_rgba(59,130,246,0.1)] relative overflow-hidden text-center">
+              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 animate-pulse"></div>
+              <button onClick={() => setShowCalibrationModal(false)} className="absolute top-6 right-6 text-gray-700 hover:text-white text-2xl leading-none">×</button>
+              
+              <div className="space-y-10">
+                <div className="space-y-4">
+                  <span className="text-blue-500 tracking-[0.8em] uppercase text-[9px] font-black block">Calibration Protocol v2.3</span>
+                  <h2 className="text-5xl font-serif font-black italic text-white tracking-tighter leading-none">Acoustic <br/><span className="text-blue-500">Mirror.</span></h2>
+                  <p className="text-gray-500 text-sm italic font-light leading-relaxed max-w-sm mx-auto">
+                    "Read the quote below clearly for 45 seconds to anchor your vocal signature into the Sovereign Engine."
+                  </p>
+                </div>
+
+                <div className="relative group">
+                  <div className="p-10 bg-black/60 border border-blue-500/10 rounded-sm italic font-serif text-xl text-blue-100 leading-relaxed shadow-inner min-h-[160px] flex items-center justify-center">
+                    "{CALIBRATION_SCRIPTS[activeScriptIndex].text}"
+                  </div>
+                  {calibrationProgress === 0 && (
+                    <button 
+                      onClick={flipScript}
+                      className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-[#111] border border-blue-500/40 text-blue-500 text-[8px] font-black uppercase tracking-widest rounded-full hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Flip the Script
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-6 pt-4">
+                  {calibrationProgress === 0 ? (
+                    <button onClick={performCalibration} className="w-full py-6 bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl hover:brightness-110 transition-all rounded-sm">
+                      Initialize Recording
+                    </button>
+                  ) : (
+                    <div className="space-y-4">
+                       <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-blue-500">
+                          <span>Hardening Signature...</span>
+                          <span>{Math.round(calibrationProgress)}%</span>
+                       </div>
+                       <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${calibrationProgress}%` }}></div>
+                       </div>
+                       <p className="text-[8px] text-gray-700 uppercase tracking-widest">Maintain consistent cadence. 45s threshold active.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       <input type="file" ref={fileInputRef} className="hidden" accept=".docx,.txt" onChange={handleFileImport} />
     </div>
