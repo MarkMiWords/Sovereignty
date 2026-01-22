@@ -9,7 +9,7 @@ import { GoogleGenAI, Modality, Type } from "@google/genai";
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("API_KEY_MISSING: The Sovereign Engine requires an industrial API key to operate.");
+    throw new Error("SOVEREIGN_LINK_COLD: Use 'Sync Engine' in the workspace sidebar to establish the industrial link.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -26,6 +26,9 @@ export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offl
     return { status: 'error', message: "Empty response from engine." };
   } catch (err: any) {
     console.error("Heartbeat Failure:", err);
+    if (err.message.includes("SOVEREIGN_LINK_COLD")) {
+       return { status: 'offline', message: "Handshake Required." };
+    }
     return { status: 'error', message: err.message || "Engine link severed." };
   }
 };

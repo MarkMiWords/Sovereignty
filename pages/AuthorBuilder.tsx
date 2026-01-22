@@ -8,6 +8,18 @@ import { LiveServerMessage } from '@google/genai';
 
 declare const mammoth: any;
 
+// Define AIStudio interface globally to satisfy TypeScript and match existing declarations
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    aistudio: AIStudio;
+  }
+}
+
 const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Story', 'Sad Story', 'Tragic Story', 'Life Story'];
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
 
@@ -34,7 +46,6 @@ function encode(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-// Added createBlob to fix "Cannot find name 'createBlob'" error.
 const createBlob = (data: Float32Array) => {
   const int16 = new Int16Array(data.length);
   for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
@@ -74,6 +85,9 @@ const AuthorBuilder: React.FC = () => {
   const [isProcessingPolish, setIsProcessingPolish] = useState(false);
   const [isAcousticActive, setIsAcousticActive] = useState(false);
 
+  // API Handshake State
+  const [engineLinked, setEngineLinked] = useState(true);
+
   // Articulate Calibration States
   const [gender, setGender] = useState('Neutral');
   const [tone, setTone] = useState('Normal');
@@ -96,6 +110,16 @@ const AuthorBuilder: React.FC = () => {
 
   const activeChapter = chapters.find(c => c.id === activeChapterId) || chapters[0] || DEFAULT_CHAPTER;
   const wordCount = activeChapter.content.split(/\s+/).filter(Boolean).length;
+
+  useEffect(() => {
+    const checkKey = async () => {
+      if (window.aistudio) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        setEngineLinked(hasKey);
+      }
+    };
+    checkKey();
+  }, []);
 
   useEffect(() => {
     if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
@@ -130,6 +154,13 @@ const AuthorBuilder: React.FC = () => {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
+  const handleSyncEngine = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setEngineLinked(true);
+    }
+  };
 
   const handleNewSheet = () => {
     const newId = Date.now().toString(); 
@@ -273,7 +304,6 @@ const AuthorBuilder: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      // Sequence increased to 45 seconds for high-fidelity character extraction
       const totalDuration = 45000; 
       const intervalTime = 500;
       const step = (intervalTime / totalDuration) * 100;
@@ -312,7 +342,6 @@ const AuthorBuilder: React.FC = () => {
       
       const sessionPromise = connectLive({
           onopen: () => {
-            // Removed undefined setIsActive, setIsConnecting, and setStatus to fix errors.
             const source = ctx.createMediaStreamSource(stream);
             const scriptProcessor = ctx.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
@@ -359,6 +388,20 @@ const AuthorBuilder: React.FC = () => {
     <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden">
       <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20">
         <div className="px-8 mb-6 space-y-4">
+           {!engineLinked ? (
+             <div className="space-y-2">
+                <button onClick={handleSyncEngine} className="w-full py-4 bg-red-600/20 border border-red-600 text-red-500 text-[9px] font-black uppercase tracking-[0.4em] hover:bg-red-600 hover:text-white transition-all rounded-sm animate-pulse">
+                   Sync Sovereign Engine
+                </button>
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="block text-center text-[7px] text-gray-700 uppercase font-black hover:text-white transition-colors">Billing Requirements →</a>
+             </div>
+           ) : (
+             <div className="p-3 bg-green-500/5 border border-green-500/20 rounded-sm flex items-center justify-center gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+                <span className="text-[8px] font-black text-green-500 uppercase tracking-widest">Engine Handshake Verified</span>
+             </div>
+           )}
+           
            <button onClick={handleNewSheet} className="w-full py-3 animate-living-amber-bg text-white text-[9px] font-black uppercase tracking-[0.4em] hover:brightness-110 transition-all shadow-xl rounded-sm">
              + New Sheet
            </button>
@@ -530,7 +573,7 @@ const AuthorBuilder: React.FC = () => {
         </div>
       </main>
 
-      <div onMouseDown={() => { isResizingPartner.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-50 transition-colors"></div>
+      <div onMouseDown={() => { isResizingNav.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-50 transition-colors"></div>
 
       <aside className="border-l border-white/10 bg-[#080808] flex flex-col shrink-0 relative transition-all" style={{ width: `${partnerWidth}px` }}>
         <div className="p-10 border-b border-white/10 bg-black">
