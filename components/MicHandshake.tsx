@@ -13,15 +13,11 @@ const MicHandshake: React.FC = () => {
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Check if we need to show the handshake
     const hasCalibrated = sessionStorage.getItem('aca_handshake_v2_complete') === 'true';
-    
-    // Logic: Always show if session is new OR if we haven't seen the "complete" flag
     if (!hasCalibrated) {
       setShow(true);
     }
 
-    // Listener for manual trigger from Footer or other components
     const handleManualTrigger = () => {
       setStatus('idle');
       setLevel(0);
@@ -48,7 +44,7 @@ const MicHandshake: React.FC = () => {
   const startCalibration = async () => {
     setStatus('calibrating');
     try {
-      // Direct request for high-quality audio with noise suppression
+      // Tablets require explicit autoGainControl and echoCancellation for link stability
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           noiseSuppression: isNoiseCancelled,
@@ -62,7 +58,7 @@ const MicHandshake: React.FC = () => {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = ctx;
       
-      // CRITICAL: Browsers block audio until a click occurs. This button click handles it.
+      // CRITICAL: Tablet browsers strictly block audio context until resumed inside a click handler
       if (ctx.state === 'suspended') await ctx.resume();
 
       const source = ctx.createMediaStreamSource(stream);
@@ -87,8 +83,8 @@ const MicHandshake: React.FC = () => {
         const normalized = Math.min(100, (average / 128) * 100);
         setLevel(normalized);
         
-        // "Ready" only when a real signal is detected (avoiding background hum)
-        if (normalized > 20) { 
+        // Lowered detection threshold for tablet built-in mics (from 20 to 10)
+        if (normalized > 10) { 
            setStatus('ready');
         }
         animationRef.current = requestAnimationFrame(checkLevel);
@@ -111,11 +107,9 @@ const MicHandshake: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[5000] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6 animate-fade-in">
-      {/* Structural Backdrop Decor */}
       <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, var(--accent) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
       <div className="max-w-xl w-full bg-[#0a0a0a] border border-white/10 p-12 rounded-sm shadow-[0_0_150px_rgba(0,0,0,1)] relative overflow-hidden">
-        {/* Manual Close for Returning Users */}
         <button 
           onClick={() => setShow(false)}
           className="absolute top-6 right-6 text-gray-800 hover:text-white transition-colors text-2xl leading-none z-20"
@@ -133,10 +127,10 @@ const MicHandshake: React.FC = () => {
                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" style={{ animationDelay: `${i * 0.2}s` }}></div>
                ))}
             </div>
-            <span className="text-[var(--accent)] tracking-[1em] uppercase text-[9px] font-black block">Acoustic Link v4.3</span>
+            <span className="text-[var(--accent)] tracking-[1em] uppercase text-[9px] font-black block">Acoustic Link v4.4 (Tablet Optimized)</span>
             <h2 className="text-5xl font-serif font-black italic text-white tracking-tighter leading-none">Hardware <br/><span className="text-[var(--accent)]">Verification.</span></h2>
             <p className="text-gray-500 text-sm italic font-light leading-relaxed max-w-sm mx-auto">
-              "We must ensure your voice is captured with absolute fidelity before entering the archive."
+              "Establishing link from local hardware to the Sovereign Forge application."
             </p>
           </div>
 
@@ -154,20 +148,19 @@ const MicHandshake: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">
                    <span>Oscilloscope Feed</span>
-                   <span className={level > 20 ? 'text-green-500 animate-pulse' : 'text-orange-500'}>
-                     {level > 20 ? 'SIGNAL DETECTED' : 'Awaiting Input...'}
+                   <span className={level > 10 ? 'text-green-500 animate-pulse' : 'text-orange-500'}>
+                     {level > 10 ? 'SIGNAL DETECTED' : 'Awaiting Input...'}
                    </span>
                 </div>
                 
-                {/* Visualizer Grid */}
                 <div className="h-20 bg-black border border-white/5 rounded-sm overflow-hidden flex items-end gap-[2px] p-4 relative">
                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px)', backgroundSize: '10px 10px' }}></div>
                    {[...Array(30)].map((_, i) => {
-                     const height = Math.random() * (level + 5);
+                     const height = level > 1 ? (Math.random() * level + 10) : 5;
                      return (
                        <div 
                          key={i} 
-                         className={`flex-grow transition-all duration-75 ${level > 20 ? 'bg-[var(--accent)]' : 'bg-gray-800'}`}
+                         className={`flex-grow transition-all duration-75 ${level > 10 ? 'bg-[var(--accent)]' : 'bg-gray-800'}`}
                          style={{ 
                            height: `${Math.max(5, height)}%`,
                            opacity: 0.2 + (i / 30)
@@ -206,9 +199,9 @@ const MicHandshake: React.FC = () => {
                 <div className="text-red-500 text-[20px] mb-2">⚠</div>
                 <p className="text-red-500 text-[10px] font-black uppercase tracking-widest leading-none">Handshake Severed</p>
                 <p className="text-gray-500 text-xs italic leading-relaxed">
-                  The browser blocked the acoustic link. Check the address bar "lock" icon and set Microphone to "Allow".
+                  The link from local mic to app was blocked. Ensure "Microphone" is set to "Allow" in your tablet's browser settings.
                 </p>
-                <button onClick={() => window.location.reload()} className="block mx-auto text-[9px] font-black text-white uppercase tracking-widest underline underline-offset-8 mt-4 hover:text-[var(--accent)]">Reset Handshake</button>
+                <button onClick={() => window.location.reload()} className="block mx-auto text-[9px] font-black text-white uppercase tracking-widest underline underline-offset-8 mt-4 hover:text-[var(--accent)]">Retry Handshake</button>
               </div>
             )}
           </div>

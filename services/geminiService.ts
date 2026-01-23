@@ -3,9 +3,9 @@ import { Message, ManuscriptReport, MasteringGoal } from "../types";
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
 /**
- * SOVEREIGN ENGINE CORE (v5.5.1)
- * This service handles all high-fidelity AI interactions for the Forge.
- * It strictly adheres to the 'Grit Sovereignty' and 'Personality Matrix' protocols.
+ * SOVEREIGN ENGINE CORE (v5.5.2)
+ * Optimized for Tablet/Mobile Frequency Response.
+ * Strictly adheres to the 'Grit Sovereignty' and 'Personality Matrix' protocols.
  */
 
 // Root Mission Directive: The "Spine" of the engine's personality.
@@ -19,22 +19,27 @@ const SOVEREIGN_MISSION = (style: string, region: string, personality: string = 
   - ENGINE TEMPERAMENT: ${personality.toUpperCase()}
   
   TEMPERAMENT LOGIC:
-  - TIMID: Be extremely cautious. Only suggest the most obvious fixes. Do not challenge the author.
-  - COOL: Be clinical, detached, and professional. Focus on legal precision and clarity.
-  - MILD: Provide gentle encouragement and light structural advice.
-  - NATURAL: A balanced writing partner. Direct but respectful.
-  - WILD: Be creative, experimental, and push the boundaries of the prose.
-  - FIREBRAND: Be provocative, intense, and challenge the author to dig deeper into the harsh truths.
+  - TIMID: Be extremely cautious. Only suggest obvious fixes.
+  - COOL: Be clinical, detached, and focus on legal precision.
+  - MILD: Gentle encouragement and light advice.
+  - NATURAL: Balanced writing partner.
+  - WILD: Experimental and push boundaries.
+  - FIREBRAND: Provocative, intense, and challenge harsh truths.
 
   CORE PROTOCOLS:
-  1. DIALECT INTEGRITY: Strictly preserve regional grit, slang, and dialect specific to ${region}. 
-  2. EMOTIONAL TRUTH: Never sanitize or "soften" the harshness of the narrative unless the personality is 'Timid'.
-  3. LEGAL SAFETY: Flag real names of staff, police, or victims. Suggest realistic pseudonyms.
-  4. LITERARY SOVEREIGNTY: Treat the author as the final authority.
+  1. DIALECT INTEGRITY: Strictly preserve regional grit from ${region}.
+  2. EMOTIONAL TRUTH: Never sanitize unless 'Timid'.
+  3. LEGAL SAFETY: Flag real names/PII.
+  4. LITERARY SOVEREIGNTY: Author is the final authority.
 `;
 
-// Helper to initialize the AI instance with the protected environment key.
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to initialize the AI instance. 
+// Instructions: obtain API_KEY exclusively from process.env.API_KEY.
+const getAI = () => {
+  const key = process.env.API_KEY;
+  if (!key) throw new Error("Sovereign Link Failure: API Key Missing from Environment.");
+  return new GoogleGenAI({ apiKey: key });
+};
 
 export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offline' | 'error', message: string }> => {
   try {
@@ -42,11 +47,15 @@ export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offl
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: 'system_ping' }] }],
-      config: { maxOutputTokens: 10, thinkingConfig: { thinkingBudget: 0 } }
+      config: { 
+        maxOutputTokens: 20, 
+        thinkingConfig: { thinkingBudget: 0 } 
+      }
     });
-    return response.text ? { status: 'online', message: "Forge Link Active." } : { status: 'error', message: "Engine silent." };
+    return response.text ? { status: 'online', message: "Acoustic & Logic Link Active." } : { status: 'error', message: "Engine silent. Response empty." };
   } catch (err: any) {
-    return { status: 'offline', message: "Sovereign Link Cold." };
+    console.error("HEARTBEAT_FAILURE:", err);
+    return { status: 'offline', message: `Sovereign Link Cold: ${err.message}` };
   }
 };
 
@@ -76,12 +85,12 @@ export const generateSpeech = async (text: string, voiceName: string = 'Kore'): 
 
 export const articulateText = async (text: string, settings: any, style: string, region: string, personality: string) => {
   const ai = getAI();
-  const { gender, tone, accent, speed, isClone } = settings;
+  const { gender, tone, accent, speed } = settings;
   const instruction = `
     ${SOVEREIGN_MISSION(style, region, personality)}
-    MODE: ARTICULATE (Acoustic Matrix Transformation)
+    MODE: ARTICULATE (Acoustic Matrix)
     TARGET: [GENDER: ${gender}, TONE: ${tone}, ACCENT: ${accent}, SPEED: ${speed}]
-    TASK: Rewrite text for oral delivery while maintaining the ${personality} temperament.
+    TASK: Rewrite for oral delivery while maintaining ${personality} temperament.
   `;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -99,14 +108,14 @@ export const smartSoap = async (text: string, level: string, style: string, regi
   switch (level) {
     case 'rinse': modeSpecific = "LEVEL L1: RINSE. Fix typos ONLY."; break;
     case 'wash': modeSpecific = "LEVEL L2: WASH. Smooth flow."; break;
-    case 'scrub': modeSpecific = "LEVEL L3: SCRUB. Structural forging."; break;
+    case 'scrub': modeSpecific = `LEVEL L3: SCRUB. Structural forging for ${style}. Maintain ${region} grit.`; break;
     case 'polish_story':
     case 'polish_poetry': modeSpecific = "LEVEL L4: POLISH. Mastering."; break;
     case 'fact_check': modeSpecific = "MODE: FACT CHECK."; useSearch = true; break;
     case 'sanitise': modeSpecific = "MODE: SANITISE. Redaction."; break;
     case 'dogg_me': modeSpecific = "LEVEL L5: DOGG ME. Alchemy."; break;
     case 'polish_turd': modeSpecific = "LEVEL L5: POLISH A TURD. Deep Reconstruction."; break;
-    default: modeSpecific = `General Mastering.`;
+    default: modeSpecific = `General Mastering for ${style}.`;
   }
 
   const response = await ai.models.generateContent({
@@ -132,12 +141,13 @@ export const queryPartner = async (message: string, style: string, region: strin
     model: 'gemini-3-flash-preview',
     contents,
     config: {
-      systemInstruction: `You are WRAPPER. ${SOVEREIGN_MISSION(style, region, personality)} Respond according to your engine temperament.`,
+      systemInstruction: `You are WRAPPER. ${SOVEREIGN_MISSION(style, region, personality)} Respond according to temperament.`,
       tools: [{ googleSearch: {} }]
     }
   });
 
-  const sources = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []).map((chunk: any) => ({
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks.map((chunk: any) => ({
     web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
   })).filter((s: any) => s.web.uri);
 
@@ -150,11 +160,12 @@ export const queryInsight = async (message: string): Promise<Message> => {
     model: 'gemini-3-flash-preview',
     contents: [{ role: "user", parts: [{ text: message }] }],
     config: {
-      systemInstruction: "You are an Archive Specialist. Use Google Search to provide carceral and systemic context.",
+      systemInstruction: "You are an Archive Specialist. Use Google Search for systemic context.",
       tools: [{ googleSearch: {} }],
     },
   });
-  const sources = (response.candidates?.[0]?.groundingMetadata?.groundingChunks || []).map((chunk: any) => ({
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks.map((chunk: any) => ({
     web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
   })).filter((s: any) => s.web.uri);
   return { role: 'assistant', content: response.text || "No data.", sources };
@@ -176,7 +187,7 @@ export const analyzeFullManuscript = async (content: string, goal: MasteringGoal
     model: 'gemini-3-pro-preview',
     contents: [{ role: "user", parts: [{ text: content.substring(0, 30000) }] }],
     config: {
-      systemInstruction: `Perform professional Mastering Audit for ${goal.toUpperCase()}. Return industrial report in JSON.`,
+      systemInstruction: `Perform professional Mastering Audit for ${goal.toUpperCase()}. Return JSON report.`,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -205,7 +216,11 @@ export const connectLive = (callbacks: any, systemInstruction: string) => {
     config: {
       responseModalities: [Modality.AUDIO],
       systemInstruction: systemInstruction,
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } }
+      speechConfig: { 
+        voiceConfig: { 
+          prebuiltVoiceConfig: { voiceName: 'Zephyr' } 
+        } 
+      }
     }
   });
 };
