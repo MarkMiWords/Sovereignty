@@ -407,10 +407,11 @@ const AuthorBuilder: React.FC = () => {
             </div>
           ))}
         </div>
-        <div className="p-8 border-t border-white/10 bg-black/60">
+        <div className="p-8 border-t border-white/10 bg-black/60 space-y-3">
            <button onClick={handleSaveToVault} className="w-full py-3 border border-dashed border-white/10 text-[8px] font-black uppercase tracking-widest text-gray-700 hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all">
-             Backup all to Big House
+             Backup to Big House
            </button>
+           <Link to="/sovereign-vault" className="block text-center text-[7px] text-gray-800 uppercase font-black hover:text-cyan-500 transition-all">Open Diagnostic Registry</Link>
         </div>
       </aside>
 
@@ -452,7 +453,7 @@ const AuthorBuilder: React.FC = () => {
                   </span>
                </div>
                <div className="absolute top-full left-0 w-64 bg-black border border-red-600 shadow-2xl z-[100] opacity-0 invisible group-hover/revise:opacity-100 group-hover/revise:visible translate-y-2 group-hover/revise:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button onClick={() => handleSoap('rinse', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Rinse (Light)</button>
+                  <button onClick={() => handleSoap('rinse', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Rinse and Wipe</button>
                   <button onClick={() => handleSoap('wash', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 border-b border-white/5 transition-colors">Wash (Structure)</button>
                   <button onClick={() => handleSoap('scrub', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Scrub (Deep)</button>
                   <button onClick={() => handleSoap('fact_check', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/10 transition-colors">Fact Check</button>

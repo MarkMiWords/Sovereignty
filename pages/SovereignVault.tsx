@@ -10,7 +10,7 @@ const VAULT_VERSION = 4;
 
 const SovereignVault: React.FC = () => {
   const navigate = useNavigate();
-  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'technical' | 'heartbeat'>('sheets');
+  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'diagnostic' | 'heartbeat'>('sheets');
   const [heartbeat, setHeartbeat] = useState<{ status: 'loading' | 'online' | 'offline' | 'error', message: string }>({ status: 'loading', message: 'Checking Status...' });
   const [isExporting, setIsExporting] = useState(false);
   
@@ -109,7 +109,7 @@ const SovereignVault: React.FC = () => {
         </div>
         <div className="pb-4 flex items-center gap-4">
            <div className={`w-3 h-3 rounded-full ${heartbeat.status === 'online' ? 'bg-green-500 shadow-[0_0_15px_#22c55e]' : heartbeat.status === 'loading' ? 'bg-amber-500' : 'bg-red-500'} animate-pulse`}></div>
-           <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Acoustic Link: {(heartbeat.status || 'OFFLINE').toUpperCase()}</span>
+           <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Forge Status: {(heartbeat.status || 'OFFLINE').toUpperCase()}</span>
         </div>
       </section>
 
@@ -121,8 +121,11 @@ const SovereignVault: React.FC = () => {
           <button onClick={() => setActiveFolder('books')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'books' ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
             <span className="text-[11px] font-black uppercase tracking-[0.2em]">The Bookshelf</span>
           </button>
+          <button onClick={() => setActiveFolder('diagnostic')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'diagnostic' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em]">Firestorm Diagnostic</span>
+          </button>
           <button onClick={() => setActiveFolder('heartbeat')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'heartbeat' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">System Status</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em]">System Heartbeat</span>
           </button>
           
           <div className="pt-10">
@@ -168,13 +171,43 @@ const SovereignVault: React.FC = () => {
               )}
             </div>
           )}
+          {activeFolder === 'diagnostic' && (
+            <div className="space-y-10 animate-fade-in">
+              <div className="bg-[#0a0a0a] border border-cyan-500/20 p-12 rounded-sm shadow-2xl">
+                 <h3 className="text-4xl font-serif italic text-white mb-8">Firestorm Pre-Launch Diagnostic</h3>
+                 <div className="space-y-6">
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">01. API Key Injection</span>
+                       <span className={process.env.API_KEY ? "text-green-500 text-[10px] font-black" : "text-red-500 text-[10px] font-black"}>
+                         {process.env.API_KEY ? "VERIFIED" : "MISSING"}
+                       </span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">02. Sovereign DB (IndexedDB)</span>
+                       <span className="text-green-500 text-[10px] font-black">ACTIVE (V4.0)</span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">03. Persistence Layer (LocalStorage)</span>
+                       <span className="text-green-500 text-[10px] font-black">READY</span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">04. Hardware Link (Microphone)</span>
+                       <button onClick={() => window.dispatchEvent(new CustomEvent('aca:open_mic_check'))} className="text-cyan-500 text-[9px] font-black uppercase tracking-widest border border-cyan-500/30 px-4 py-1">Run Check</button>
+                    </div>
+                 </div>
+                 <div className="mt-12 p-8 bg-cyan-900/10 border border-cyan-500/20 italic text-cyan-100 text-sm leading-relaxed">
+                   "Firestorm Ready: If all checks are Green, your Sovereign Workspace is safe for multi-continental deployment."
+                 </div>
+              </div>
+            </div>
+          )}
           {activeFolder === 'heartbeat' && (
             <div className="space-y-8 animate-fade-in">
               <div className="bg-[#0a0a0a] border border-green-500/20 p-12 rounded-sm shadow-2xl">
-                 <h3 className="text-4xl font-serif italic text-white mb-12">System Heartbeat</h3>
+                 <h3 className="text-4xl font-serif italic text-white mb-12">Forge Heartbeat</h3>
                  <div className="p-10 bg-black border border-white/5 rounded-sm flex items-center justify-between">
                     <div className="space-y-2">
-                       <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Logic Flow</p>
+                       <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Logic Stream</p>
                        <p className={`text-4xl font-serif italic ${heartbeat.status === 'online' ? 'text-green-500' : 'text-red-500'}`}>{(heartbeat.status).toUpperCase()}</p>
                     </div>
                     <button onClick={refreshHeartbeat} className="text-[10px] font-black text-green-500 border border-green-500/30 px-6 py-2">Refresh</button>

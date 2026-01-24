@@ -14,7 +14,9 @@ const SOVEREIGN_MISSION = (style: string, region: string, personality: string = 
 
 const getAI = () => {
   const key = process.env.API_KEY;
-  if (!key) throw new Error("Sovereign Link Failure: API Key Missing.");
+  if (!key || key === "undefined") {
+    throw new Error("CORE_LINK_FAILURE: Sovereign API Key is missing. Check your environment variables.");
+  }
   return new GoogleGenAI({ apiKey: key });
 };
 
@@ -26,10 +28,13 @@ export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offl
       contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
     });
     return response.text
-      ? { status: 'online', message: "Link active." }
-      : { status: 'error', message: "Empty response." };
+      ? { status: 'online', message: "Acoustic Link Stable. Forging logic active." }
+      : { status: 'error', message: "Empty response from forge." };
   } catch (err: any) {
-    return { status: 'offline', message: err.message || "Unknown link error." };
+    if (err.message?.includes("API_KEY_INVALID")) {
+      return { status: 'offline', message: "INVALID_KEY: The Sovereign Link requires a valid API key." };
+    }
+    return { status: 'offline', message: err.message || "Link interrupted." };
   }
 };
 
@@ -41,12 +46,12 @@ export const articulateText = async (text: string, settings: any, style: string,
     MODE: ARTICULATE
     ACOUSTIC MATRIX: 
     - GENDER: ${gender}
-    - SOUND_LEVEL (RESONANCE): ${sound} 
+    - SOUND_LEVEL: ${sound} 
     - REGIONAL_ACCENT: ${accent}
-    - TEMPORAL_SPEED: ${speed} 
+    - PACE: ${speed} 
     - CLONE_MODE: ${isClone ? 'ACTIVE' : 'OFF'}
     
-    GOAL: Refine sentence length, mouth-feel, and oral rhythm for the selected Sound (${sound}) and Speed (${speed}) while keeping carceral dialect grit 100% intact.
+    GOAL: Refine sentence length and oral rhythm for the selected profile while keeping carceral dialect 100% intact.
   `;
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -63,32 +68,38 @@ export const smartSoap = async (text: string, level: string, style: string, regi
 
   switch (level) {
     case 'rinse': 
-      modeSpecific = "LEVEL L1: RINSE. Fix typos and punctuation ONLY. Do not change a single word of slang or syntax."; 
+      modeSpecific = `
+        MODE: RINSE AND WIPE. 
+        1. WIPE: Permanently REMOVE all lines starting with '[WRAP]:' or any dialogue belonging to the AI assistant. 
+        2. CLEAN: Remove the '[Author]:' prefixes. Fix basic typos and punctuation. 
+        3. CONNECT THE DOTS: Smooth the transitions between the remaining fragments to form a cohesive, continuous first-person story thread. 
+        4. INTEGRITY: Do not change the author's slang, grit, or dialect.
+      `; 
       break;
     case 'wash': 
-      modeSpecific = "LEVEL L2: WASH. Smooth awkward transitions and ensure tense consistency. Preserve 100% of dialect."; 
+      modeSpecific = "LEVEL L2: WASH. Smooth transitions, preserve 100% of dialect."; 
       break;
     case 'scrub': 
-      modeSpecific = "LEVEL L3: SCRUB. Structural forging. Tighten prose, remove redundant fillers, and move paragraphs for impact."; 
+      modeSpecific = "LEVEL L3: SCRUB. Structural forging. Tighten prose for impact."; 
       break;
     case 'fact_check': 
-      modeSpecific = "MODE: FACT CHECK. Audit for legal safety, verify place names, and check systemic context."; 
+      modeSpecific = "MODE: FACT CHECK. Audit for legal safety and verify systemic context."; 
       useSearch = true; 
       break;
     case 'dogg_me': 
-      modeSpecific = "MODE: DOGG ME. Alchemical transformation from prose to verse. Use carceral yard cadence."; 
+      modeSpecific = "MODE: DOGG ME. Alchemical transformation to verse. Yard cadence."; 
       break;
     case 'polish_story': 
-      modeSpecific = "MODE: POLISH STORY. Enhance narrative arcs and character beats for a professional reader."; 
+      modeSpecific = "MODE: POLISH STORY. Enhance narrative beats."; 
       break;
     case 'polish_poetry': 
-      modeSpecific = "MODE: POLISH POETRY. Enhance meter, imagery, and sensory resonance of the verse."; 
+      modeSpecific = "MODE: POLISH POETRY. Enhance meter and resonance."; 
       break;
     case 'sanitise': 
-      modeSpecific = "MODE: SANITISE. Strictly redact PII (Real names, ID numbers, facilities). Use realistic pseudonyms."; 
+      modeSpecific = "MODE: SANITISE. Strictly redact PII (Names, ID numbers)."; 
       break;
     case 'polish_turd': 
-      modeSpecific = "MODE: POLISH A TURD. Deep tissue reconstruction. Rebuild the logic from the soul out while keeping the truth."; 
+      modeSpecific = "MODE: POLISH A TURD. Deep tissue reconstruction from the soul out."; 
       break;
   }
 
@@ -172,6 +183,38 @@ export const generateSpeech = async (text: string, voiceName: string = 'Puck') =
   return base64Audio;
 };
 
+export const connectLive = (callbacks: any, systemInstruction: string) => {
+  const ai = getAI();
+  return ai.live.connect({
+    model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    callbacks: {
+      onopen: callbacks.onopen,
+      onmessage: callbacks.onmessage,
+      onerror: (e) => {
+        console.error("Live link failed:", e);
+        if (callbacks.onerror) callbacks.onerror(e);
+      },
+      onclose: (e) => {
+        if (callbacks.onclose) callbacks.onclose(e);
+      },
+    },
+    config: {
+      responseModalities: [Modality.AUDIO],
+      systemInstruction,
+      inputAudioTranscription: {},
+      outputAudioTranscription: {}, // Required for real-time model transcription
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+      }
+    },
+  });
+};
+
+// --- Added missing exports to fix compilation errors in pages/Narratives.tsx, pages/Kindred.tsx, and pages/PublishedBooks.tsx ---
+
+/**
+ * queryInsight: Used in Narratives.tsx to search the archive context with Search grounding.
+ */
 export const queryInsight = async (message: string): Promise<Message> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
@@ -183,26 +226,33 @@ export const queryInsight = async (message: string): Promise<Message> => {
     },
   });
 
+  const content = response.text || "";
   const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
   const sources = groundingChunks.map((chunk: any) => ({
     web: { uri: chunk.web?.uri || "", title: chunk.web?.title || "" }
   })).filter((s: any) => s.web.uri);
 
-  return { role: 'assistant', content: response.text || "Archive link interrupted.", sources };
+  return { role: 'assistant', content, sources };
 };
 
+/**
+ * interactWithAurora: Used in Kindred.tsx for synthetic agent chat.
+ */
 export const interactWithAurora = async (message: string): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text: message }] }],
     config: {
-      systemInstruction: "You are 'Aurora', a Kindred Agent. Empathetic, calm, creative sanctuary partner for the isolated.",
+      systemInstruction: "You are 'Aurora', a Kindred Agent. Empathetic, calm, creative sanctuary partner.",
     }
   });
-  return response.text || "I am here, listening.";
+  return response.text || "I am listening.";
 };
 
+/**
+ * generateImage: Used in PublishedBooks.tsx for AI-driven book cover generation.
+ */
 export const generateImage = async (description: string): Promise<{ imageUrl: string }> => {
   const ai = getAI();
   const industrialPrompt = `A high-quality, cinematic book cover for a prison narrative. Style: Minimalist, dramatic lighting, gritty texture, industrial aesthetic. Themes: ${description}. Aspect Ratio 16:9. Colors: Black, white, and high-contrast orange.`;
@@ -229,34 +279,9 @@ export const generateImage = async (description: string): Promise<{ imageUrl: st
     }
   }
 
-  if (!base64Image) throw new Error("Visual synthesis failed.");
-  return { imageUrl: `data:image/png;base64,${base64Image}` };
-};
+  if (!base64Image) {
+    throw new Error("No image data returned from model.");
+  }
 
-export const connectLive = (callbacks: any, systemInstruction: string) => {
-  const ai = getAI();
-  return ai.live.connect({
-    model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-    callbacks: {
-      onopen: callbacks.onopen,
-      onmessage: callbacks.onmessage,
-      onerror: (e) => {
-        console.error("Live session error:", e);
-        if (callbacks.onerror) callbacks.onerror(e);
-      },
-      onclose: (e) => {
-        console.warn("Live session closed:", e);
-        if (callbacks.onclose) callbacks.onclose(e);
-      },
-    },
-    config: {
-      responseModalities: [Modality.AUDIO],
-      systemInstruction,
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }
-      }
-    },
-  });
+  return { imageUrl: `data:image/png;base64,${base64Image}` };
 };
