@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { readJson, writeJson } from '../utils/safeStorage';
 
 const THEMES = [
@@ -17,7 +17,6 @@ const ACCENTS = ['AU', 'UK', 'US'];
 const SPEEDS = ['1x', '1.25x', '1.5x'];
 
 const WrapperInfo: React.FC = () => {
-  const navigate = useNavigate();
   const [profile, setProfile] = useState(() => {
     return readJson<any>('aca_author_profile', {
       name: 'Architect',
@@ -49,12 +48,7 @@ const WrapperInfo: React.FC = () => {
     }
     
     setShowSavedToast(true);
-    
-    // REDIRECT BACK: Seamless return to workspace
-    setTimeout(() => {
-      setShowSavedToast(false);
-      navigate(-1); // Returns to AuthorBuilder or LiveSession
-    }, 1500);
+    setTimeout(() => setShowSavedToast(false), 3000);
   };
 
   const currentPersonality = PERSONALITIES[profile.personalityIndex || 0];
@@ -62,9 +56,9 @@ const WrapperInfo: React.FC = () => {
   return (
     <div className="bg-[#050505] min-h-screen text-white pb-32 font-sans pt-24">
       <section className="max-w-4xl mx-auto px-6 py-12">
-        <button onClick={() => navigate(-1)} className="text-[10px] font-black uppercase tracking-[0.4em] mb-12 block hover:underline" style={{ color: 'var(--accent)' }}>
+        <Link to="/author-builder" className="text-[10px] font-black uppercase tracking-[0.4em] mb-12 block hover:underline" style={{ color: 'var(--accent)' }}>
           ← Return to Studio
-        </button>
+        </Link>
         <h1 className="text-6xl font-serif font-black italic text-white mb-6 uppercase">WRAP <span style={{ color: 'var(--accent)' }}>Profile.</span></h1>
         <p className="text-xl text-gray-500 font-light italic leading-relaxed max-w-2xl">Manage your author identity and the specifications of your WRAP partner.</p>
       </section>
@@ -83,7 +77,7 @@ const WrapperInfo: React.FC = () => {
           </div>
         </div>
 
-        {/* WRAP Identity Section */}
+        {/* WRAP Identity Matrix */}
         <div className="bg-[#0a0a0a] border border-white/10 p-10 rounded-sm shadow-2xl space-y-12">
           <div className="space-y-4">
             <label className="text-[10px] font-black uppercase tracking-[0.5em] text-cyan-500">WRAP Identity</label>
@@ -160,8 +154,9 @@ const WrapperInfo: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          <div className="space-y-8 pt-6 border-t border-white/5">
+
+          {/* Personality Slider */}
+          <div className="space-y-8 py-6 border-t border-white/5">
             <div className="flex justify-between items-end">
                <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Temperament Matrix</label>
                <span className="text-[var(--accent)] font-serif italic text-2xl tracking-tighter animate-pulse">{currentPersonality}</span>
@@ -185,7 +180,7 @@ const WrapperInfo: React.FC = () => {
           </div>
         </div>
 
-        {/* Theme Settings */}
+        {/* Workspace Theme */}
         <div className="bg-[#0a0a0a] border border-white/10 p-10 rounded-sm shadow-2xl">
           <div className="space-y-6">
             <label className="text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">Workspace Theme</label>

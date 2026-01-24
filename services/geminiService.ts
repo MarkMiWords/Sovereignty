@@ -26,14 +26,12 @@ export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offl
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+      config: { maxOutputTokens: 1 }
     });
     return response.text
       ? { status: 'online', message: "Acoustic Link Stable. Forging logic active." }
       : { status: 'error', message: "Empty response from forge." };
   } catch (err: any) {
-    if (err.message?.includes("API_KEY_INVALID")) {
-      return { status: 'offline', message: "INVALID_KEY: The Sovereign Link requires a valid API key." };
-    }
     return { status: 'offline', message: err.message || "Link interrupted." };
   }
 };
@@ -41,18 +39,21 @@ export const checkSystemHeartbeat = async (): Promise<{ status: 'online' | 'offl
 export const articulateText = async (text: string, settings: any, style: string, region: string, personality: string) => {
   const ai = getAI();
   const { gender, sound, accent, speed, isClone } = settings;
+  
   const instruction = `
     ${SOVEREIGN_MISSION(style, region, personality)}
-    MODE: ARTICULATE
-    ACOUSTIC MATRIX: 
-    - GENDER: ${gender}
-    - SOUND_LEVEL: ${sound} 
-    - REGIONAL_ACCENT: ${accent}
-    - PACE: ${speed} 
-    - CLONE_MODE: ${isClone ? 'ACTIVE' : 'OFF'}
+    MODE: ARTICULATE (Oral Storytelling Optimization)
     
-    GOAL: Refine sentence length and oral rhythm for the selected profile while keeping carceral dialect 100% intact.
+    ACOUSTIC MATRIX DIRECTIVES:
+    1. REGIONAL ACCENT [${accent}]: Integrate carceral dialect specific to this region (e.g., AU uses 'The Yard', 'Wallies'; US uses 'The Feds', 'The County').
+    2. TEMPORAL PACE [${speed}]: If speed > 1x, shorten sentence length for rapid delivery.
+    3. SOUND LEVEL [${sound}]: If 'Loud', favor hard plosive consonants. If 'Soft', favor reflective tones.
+    4. GENDER [${gender}]: Weight vocabulary to suit this identity.
+    5. CLONE_MODE: ${isClone ? 'ACTIVE' : 'OFF'}
+
+    GOAL: Refine oral rhythm for performance while keeping carceral grit 100% intact.
   `;
+  
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text }] }],
@@ -68,16 +69,10 @@ export const smartSoap = async (text: string, level: string, style: string, regi
 
   switch (level) {
     case 'rinse': 
-      modeSpecific = `
-        MODE: RINSE AND WIPE. 
-        1. WIPE: Permanently REMOVE all lines starting with '[WRAP]:' or any dialogue belonging to the AI assistant. 
-        2. CLEAN: Remove the '[Author]:' prefixes. Fix basic typos and punctuation. 
-        3. CONNECT THE DOTS: Smooth the transitions between the remaining fragments to form a cohesive, continuous first-person story thread. 
-        4. INTEGRITY: Do not change the author's slang, grit, or dialect.
-      `; 
+      modeSpecific = "MODE: RINSE AND WIPE. Fix typos and punctuation ONLY. Preserve 100% of carceral slang and grit."; 
       break;
     case 'wash': 
-      modeSpecific = "LEVEL L2: WASH. Smooth transitions, preserve 100% of dialect."; 
+      modeSpecific = "LEVEL L2: WASH. Smooth transitions, preserve 100% of regional dialect."; 
       break;
     case 'scrub': 
       modeSpecific = "LEVEL L3: SCRUB. Structural forging. Tighten prose for impact."; 
@@ -87,16 +82,16 @@ export const smartSoap = async (text: string, level: string, style: string, regi
       useSearch = true; 
       break;
     case 'dogg_me': 
-      modeSpecific = "MODE: DOGG ME. Alchemical transformation to verse. Yard cadence."; 
+      modeSpecific = "MODE: DOGG ME. Alchemical transformation to irregular verse. Yard cadence."; 
       break;
     case 'polish_story': 
-      modeSpecific = "MODE: POLISH STORY. Enhance narrative beats."; 
+      modeSpecific = "MODE: POLISH STORY. Enhance narrative beats for storytelling."; 
       break;
     case 'polish_poetry': 
       modeSpecific = "MODE: POLISH POETRY. Enhance meter and resonance."; 
       break;
     case 'sanitise': 
-      modeSpecific = "MODE: SANITISE. Strictly redact PII (Names, ID numbers)."; 
+      modeSpecific = "MODE: SANITISE. Strictly redact PII (Names, ID numbers). Suggest pseudonyms."; 
       break;
     case 'polish_turd': 
       modeSpecific = "MODE: POLISH A TURD. Deep tissue reconstruction from the soul out."; 
@@ -168,7 +163,7 @@ export const generateSpeech = async (text: string, voiceName: string = 'Puck') =
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text }] }],
+    contents: [{ parts: [{ text: text.substring(0, 1000) }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
@@ -183,7 +178,7 @@ export const generateSpeech = async (text: string, voiceName: string = 'Puck') =
   return base64Audio;
 };
 
-export const connectLive = (callbacks: any, systemInstruction: string, voiceName: string = 'Zephyr') => {
+export const connectLive = (callbacks: any, systemInstruction: string) => {
   const ai = getAI();
   return ai.live.connect({
     model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -204,7 +199,7 @@ export const connectLive = (callbacks: any, systemInstruction: string, voiceName
       inputAudioTranscription: {},
       outputAudioTranscription: {}, 
       speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName } }
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
       }
     },
   });

@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
                 <p className="text-[7px] text-gray-600 mb-1 uppercase font-black">Sync Manifest</p>
                 <p className="text-[8px] text-green-500 flex items-center gap-2 font-black uppercase tracking-widest">
                    <span className="w-1 h-1 bg-green-500 rounded-full shadow-[0_0_8px_#22c55e]"></span>
-                   Build Active: v4.2.0 Stable
+                   Build Active: v4.5.0 Stable
                 </p>
               </li>
             </ul>

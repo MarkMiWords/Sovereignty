@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Book } from '../types';
 import { generateImage } from '../services/geminiService';
-// Added missing 'k' import
-import { syncShadowRegistry, readJson, k } from '../utils/safeStorage';
 
 const SAMPLE_BOOKS: Book[] = [
   {
@@ -20,9 +18,10 @@ const SAMPLE_BOOKS: Book[] = [
   }
 ];
 
-const MAX_FILE_SIZE = 2.5 * 1024 * 1024; // Bumped to 2.5MB for better quality masters
+const MAX_FILE_SIZE = 1.5 * 1024 * 1024;
 const INDUSTRIAL_ASPECT = 1600 / 2700; 
 
+// --- Sovereign Vault Core V4 ---
 const VAULT_NAME = 'aca_sovereign_registry';
 const VAULT_VERSION = 4;
 
@@ -37,11 +36,6 @@ const openVault = (): Promise<IDBDatabase> => {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
-    // Handle database blocking
-    request.onblocked = () => {
-      console.warn("DB Blocked. Attempting recovery...");
-      reject(new Error("DB_BLOCKED"));
-    };
   });
 };
 
@@ -67,8 +61,18 @@ const getFromVault = async (): Promise<Book[]> => {
       request.onerror = () => reject(request.error);
     });
   } catch (e) {
-    console.warn("Vault retrieval failure, falling back to shadow registry.");
     return [];
+  }
+};
+
+const factoryReset = async () => {
+  if (window.confirm("CRITICAL: Wipe all local data, images, and sheets for a Clean Slate?")) {
+    localStorage.clear();
+    const request = indexedDB.deleteDatabase(VAULT_NAME);
+    request.onsuccess = () => {
+      alert("System purged. Reloading...");
+      window.location.href = "/";
+    };
   }
 };
 
@@ -110,26 +114,11 @@ const PublishedBooks: React.FC = () => {
 
   const loadRegistry = async () => {
     const userBooks = await getFromVault();
-    const shadowBooks = readJson<any[]>('shadow_book_registry', []);
-    
-    // Merge Strategy: Primary DB -> Shadow Registry -> Samples
-    let finalBooks = [...userBooks];
-    
-    // If DB is empty, use shadow registry to show metadata
-    if (finalBooks.length === 0 && shadowBooks.length > 0) {
-      finalBooks = shadowBooks.map(s => ({
-        ...s,
-        coverUrl: '', // Explicitly mark as needing re-sync
-        status: 'sync_required'
-      }));
-    }
-
+    const combined = [...userBooks];
     SAMPLE_BOOKS.forEach(sample => {
-      if (!finalBooks.find(b => b.slug === sample.slug)) finalBooks.push(sample);
+      if (!combined.find(b => b.slug === sample.slug)) combined.push(sample);
     });
-    
-    setBooks(finalBooks);
-    syncShadowRegistry(finalBooks);
+    setBooks(combined);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +126,7 @@ const PublishedBooks: React.FC = () => {
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      setError(`CRITICAL OVERSIZE: ${(file.size / 1024 / 1024).toFixed(1)}MB. Use 2.5MB for stability.`);
+      setError(`CRITICAL OVERSIZE: ${(file.size / 1024 / 1024).toFixed(1)}MB. Use 1.5MB for stability.`);
       return;
     }
 
@@ -186,9 +175,8 @@ const PublishedBooks: React.FC = () => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // Scaled down slightly to ensure memory stability on mobile
-      canvas.width = useIndustrialCrop ? 1200 : img.width;
-      canvas.height = useIndustrialCrop ? 2025 : img.height;
+      canvas.width = useIndustrialCrop ? 1600 : img.width;
+      canvas.height = useIndustrialCrop ? 2700 : img.height;
       
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -200,7 +188,7 @@ const PublishedBooks: React.FC = () => {
       if (useIndustrialCrop) {
         const imgAspect = img.width / img.height;
         let drawW, drawH;
-        if (imgAspect > (1200/2025)) {
+        if (imgAspect > INDUSTRIAL_ASPECT) {
           drawH = canvas.height * cropOffset.scale;
           drawW = drawH * imgAspect;
         } else {
@@ -214,7 +202,7 @@ const PublishedBooks: React.FC = () => {
         ctx.drawImage(img, 0, 0);
       }
 
-      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.90);
       setNewBook(prev => ({ ...prev, coverUrl: finalDataUrl }));
       setMasteringAsset(null);
       setIsProcessing(false);
@@ -255,7 +243,7 @@ const PublishedBooks: React.FC = () => {
       setMasteringSuccess(false);
       setError(null);
     } catch (e) {
-      setError("VAULT WRITE ERROR: The database is locked. Try refreshing or clearing memory.");
+      setError("VAULT WRITE ERROR: The registry failed to lock the data.");
     }
   };
 
@@ -266,11 +254,11 @@ const PublishedBooks: React.FC = () => {
           <div>
             <span className="text-[var(--accent)] tracking-[0.6em] uppercase text-[10px] font-bold mb-6 block">Master Registry</span>
             <h1 className="text-6xl md:text-9xl font-serif font-black mb-12 italic leading-none tracking-tighter uppercase text-white">Book <span className="animate-living-amber">Registry.</span></h1>
-            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Shadow Registry Active — Meta-Persistent Workspace."</p>
+            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Sovereign Vault V4.0 — High-Fidelity Text & Image Persistence."</p>
           </div>
           <div className="pb-12 flex flex-col md:flex-row gap-6">
             <button onClick={() => setIsAddingBook(true)} className="animate-living-amber-bg text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:brightness-110 transition-all rounded-sm">Register Master</button>
-            <button onClick={() => { if(window.confirm("Erase all local books?")) { localStorage.removeItem(k('shadow_book_registry')); window.location.reload(); } }} className="text-[7px] text-red-900 font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Clear Shadow Buffer</button>
+            <button onClick={factoryReset} className="text-[7px] text-red-900 font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Clean Slate Reset</button>
           </div>
         </div>
       </section>
@@ -287,10 +275,7 @@ const PublishedBooks: React.FC = () => {
                     className="w-full h-full object-contain grayscale-[30%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000"
                   />
                 ) : (
-                  <div className="text-gray-800 text-[10px] font-black uppercase tracking-widest text-center px-6">
-                    <p className="mb-4">Shadow Sync Only</p>
-                    <span className="text-[8px] border border-orange-500/30 px-3 py-1 text-orange-500">Re-Link Required</span>
-                  </div>
+                  <div className="text-gray-800 text-[10px] font-black uppercase tracking-widest text-center px-6">Master Asset Missing</div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-transparent opacity-60"></div>
               </Link>
@@ -351,7 +336,7 @@ const PublishedBooks: React.FC = () => {
                   <div className="space-y-6 text-[9px] text-gray-500 uppercase tracking-widest leading-loose">
                     <p>Pathway A: Upload your own high-fidelity cover image.</p>
                     <p>Pathway B: Use Gemini AI to synthesize a cover based on your blurb.</p>
-                    <p>Shadow Lock: Your metadata is auto-synced to local memory for hibernation safety.</p>
+                    <p>Persistence: Once committed, the book is locked into your Sovereign Vault (V4.0).</p>
                   </div>
                </div>
             </div>

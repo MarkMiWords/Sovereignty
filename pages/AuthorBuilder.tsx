@@ -12,11 +12,6 @@ const STYLES = ['Fiction', 'Non-Fiction', 'Prison Life', 'Crime Life', 'Love Sto
 const REGIONS = ['Asia', 'Australia', 'North America', 'South America', 'United Kingdom', 'Europe'];
 const PERSONALITIES = ['Timid', 'Cool', 'Mild', 'Natural', 'Wild', 'Firebrand'];
 
-const GENDERS = ['Male', 'Female', 'Neutral'];
-const SOUNDS = ['Soft', 'Normal', 'Loud'];
-const ACCENTS = ['AU', 'UK', 'US'];
-const SPEEDS = ['1x', '1.25x', '1.5x'];
-
 const DEFAULT_CHAPTER: Chapter = { id: '1', title: "", content: '', order: 0, media: [], subChapters: [] };
 
 const CALIBRATION_SCRIPTS = [
@@ -36,7 +31,7 @@ function encode(bytes: Uint8Array) {
 const createBlob = (data: Float32Array) => {
   const int16 = new Int16Array(data.length);
   for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
-  return { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
+  return { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm' };
 };
 
 const AuthorBuilder: React.FC = () => {
@@ -72,51 +67,20 @@ const AuthorBuilder: React.FC = () => {
   const [activeRevisionType, setActiveRevisionType] = useState<string | null>(null);
   const [hasBeenRinsed, setHasBeenRinsed] = useState(false);
 
-  const [profile, setProfile] = useState<any>(null);
+  // CONTEXT PERSISTENCE
+  const [style, setStyle] = useState(() => readJson<any>('aca_author_profile', {}).motivation || STYLES[2]);
+  const [region, setRegion] = useState(() => readJson<any>('aca_author_profile', {}).region || REGIONS[1]);
+  const [personality, setPersonality] = useState(() => {
+    const profile = readJson<any>('aca_author_profile', { personalityIndex: 3 });
+    return PERSONALITIES[profile.personalityIndex] || 'Natural';
+  });
 
-  const [style, setStyle] = useState(STYLES[2]);
-  const [region, setRegion] = useState(REGIONS[1]);
-  const [personality, setPersonality] = useState('Natural');
   const [gender, setGender] = useState('Neutral');
   const [sound, setSound] = useState('Normal'); 
   const [accent, setAccent] = useState('AU');
   const [speed, setSpeed] = useState('1x'); 
-
-  useEffect(() => {
-    const loaded = readJson<any>('aca_author_profile', {
-      name: 'Author',
-      motivation: STYLES[2],
-      region: REGIONS[1],
-      personalityIndex: 3,
-      wrapGender: 'Neutral',
-      wrapSound: 'Normal',
-      wrapAccent: 'AU',
-      wrapSpeed: '1x'
-    });
-    setProfile(loaded);
-    setStyle(loaded.motivation);
-    setRegion(loaded.region);
-    setPersonality(PERSONALITIES[loaded.personalityIndex] || 'Natural');
-    setGender(loaded.wrapGender);
-    setSound(loaded.wrapSound);
-    setAccent(loaded.wrapAccent);
-    setSpeed(loaded.wrapSpeed);
-  }, []);
-
-  const syncToProfile = (updates: any) => {
-    const currentProfile = readJson<any>('aca_author_profile', {});
-    const newProfile = { ...currentProfile, ...updates };
-    writeJson('aca_author_profile', newProfile);
-    setProfile(newProfile);
-  };
-
-  const handleStyleChange = (val: string) => { setStyle(val); syncToProfile({ motivation: val }); };
-  const handleRegionChange = (val: string) => { setRegion(val); syncToProfile({ region: val }); };
-  const handleGenderChange = (val: string) => { setGender(val); syncToProfile({ wrapGender: val }); };
-  const handleSoundChange = (val: string) => { setSound(val); syncToProfile({ wrapSound: val }); };
-  const handleAccentChange = (val: string) => { setAccent(val); syncToProfile({ wrapAccent: val }); };
-  const handleSpeedChange = (val: string) => { setSpeed(val); syncToProfile({ wrapSpeed: val }); };
-
+  
+  // Vault-Integrated Calibration
   const [isCloneCalibrated, setIsCloneCalibrated] = useState(() => {
     const vault = readJson<any>('sovereign_vault', { sheets: [], books: [], ai: [], audits: [] });
     return !!vault.voiceSignature;
@@ -134,6 +98,11 @@ const AuthorBuilder: React.FC = () => {
 
   const activeChapter = chapters.find(c => c.id === activeChapterId) || chapters[0] || DEFAULT_CHAPTER;
   const wordCount = activeChapter.content.split(/\s+/).filter(Boolean).length;
+
+  useEffect(() => {
+    const profile = readJson<any>('aca_author_profile', {});
+    writeJson('aca_author_profile', { ...profile, motivation: style, region });
+  }, [style, region]);
 
   useEffect(() => {
     if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
@@ -303,6 +272,7 @@ const AuthorBuilder: React.FC = () => {
 
     let textToSpeak = activeChapter.content;
 
+    // Sequential Strobe Logic: Rinse first if not done
     if (!hasBeenRinsed) {
         textToSpeak = await handleSoap('rinse', 'revise');
     }
@@ -415,7 +385,7 @@ const AuthorBuilder: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden relative">
+    <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden">
       <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20">
         <div className="px-8 mb-6 space-y-4">
            <button onClick={handleNewSheet} className="w-full py-3 animate-living-amber-bg text-white text-[9px] font-black uppercase tracking-[0.4em] hover:brightness-110 transition-all shadow-xl rounded-sm">
@@ -509,8 +479,8 @@ const AuthorBuilder: React.FC = () => {
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Acoustic Identity (Gender)</p>
                         <div className="flex gap-2">
-                           {GENDERS.map(g => (
-                              <button key={g} onClick={(e) => { e.stopPropagation(); handleGenderChange(g); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === g ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{g}</button>
+                           {['Male', 'Female', 'Neutral'].map(g => (
+                              <button key={g} onClick={(e) => { e.stopPropagation(); setGender(g); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${gender === g ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{g}</button>
                            ))}
                         </div>
                      </div>
@@ -518,8 +488,8 @@ const AuthorBuilder: React.FC = () => {
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Sound Matrix</p>
                         <div className="flex gap-2">
-                           {SOUNDS.map(s => (
-                              <button key={s} onClick={(e) => { e.stopPropagation(); handleSoundChange(s); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${sound === s ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{s}</button>
+                           {['Soft', 'Normal', 'Loud'].map(s => (
+                              <button key={s} onClick={(e) => { e.stopPropagation(); setSound(s); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${sound === s ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{s}</button>
                            ))}
                         </div>
                      </div>
@@ -527,8 +497,8 @@ const AuthorBuilder: React.FC = () => {
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Temporal Matrix</p>
                         <div className="flex gap-2">
-                           {SPEEDS.map(sp => (
-                              <button key={sp} onClick={(e) => { e.stopPropagation(); handleSpeedChange(sp); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${speed === sp ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{sp}</button>
+                           {['1x', '1.25x', '1.5x'].map(sp => (
+                              <button key={sp} onClick={(e) => { e.stopPropagation(); setSpeed(sp); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${speed === sp ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{sp}</button>
                            ))}
                         </div>
                      </div>
@@ -536,8 +506,8 @@ const AuthorBuilder: React.FC = () => {
                      <div className="space-y-3">
                         <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Regional Accent</p>
                         <div className="flex gap-2">
-                           {ACCENTS.map(a => (
-                              <button key={a} onClick={(e) => { e.stopPropagation(); handleAccentChange(a); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${accent === a ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{a}</button>
+                           {['AU', 'UK', 'US'].map(a => (
+                              <button key={a} onClick={(e) => { e.stopPropagation(); setAccent(a); }} className={`flex-1 py-2 text-[8px] font-black uppercase rounded-sm border transition-all ${accent === a ? 'bg-blue-500 border-blue-500 text-white' : 'border-white/10 text-gray-600 hover:text-white'}`}>{a}</button>
                            ))}
                         </div>
                      </div>
@@ -627,13 +597,13 @@ const AuthorBuilder: React.FC = () => {
         <div className="px-10 py-6 border-b border-white/5 bg-white/[0.01] grid grid-cols-2 gap-6">
            <div className="space-y-1">
               <p className="text-[7px] font-black text-orange-500 uppercase tracking-widest">Story Type</p>
-              <select value={style} onChange={(e) => handleStyleChange(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
+              <select value={style} onChange={(e) => setStyle(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
                  {STYLES.map(s => <option key={s} value={s} className="bg-black">{s}</option>)}
               </select>
            </div>
            <div className="space-y-1">
               <p className="text-[7px] font-black text-orange-500 uppercase tracking-widest">Region</p>
-              <select value={region} onChange={(e) => handleRegionChange(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
+              <select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full bg-transparent text-[9px] font-black uppercase tracking-widest text-white outline-none border-none p-0 cursor-pointer focus:ring-0">
                  {REGIONS.map(r => <option key={r} value={r} className="bg-black">{r}</option>)}
               </select>
            </div>
@@ -697,14 +667,6 @@ const AuthorBuilder: React.FC = () => {
         </div>
       )}
       <input type="file" ref={fileInputRef} className="hidden" accept=".docx,.txt" onChange={handleFileImport} />
-      
-      {/* ACOUSTIC OVERLAY INDICATOR - Pulse during Live Session */}
-      <div className="fixed top-24 left-1/2 -translate-x-1/2 pointer-events-none z-[1000]">
-        <div className="flex items-center gap-4 bg-black/80 backdrop-blur-md border border-white/5 px-6 py-2 rounded-full shadow-[0_0_30px_rgba(6,182,212,0.2)] animate-fade-in group">
-           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-ping"></div>
-           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400">Acoustic Link Active</span>
-        </div>
-      </div>
     </div>
   );
 };

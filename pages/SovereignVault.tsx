@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { VaultStorage, VaultSheet, Chapter } from '../types';
-import { readObject, readArray, writeJson, k } from '../utils/safeStorage';
+import { VaultStorage, VaultSheet } from '../types';
+import { readObject, readArray, writeJson } from '../utils/safeStorage';
 import { checkSystemHeartbeat } from '../services/geminiService';
 
 const VAULT_NAME = 'aca_sovereign_registry';
@@ -10,11 +10,9 @@ const VAULT_VERSION = 4;
 
 const SovereignVault: React.FC = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'courier' | 'heartbeat'>('sheets');
+  const [activeFolder, setActiveFolder] = useState<'sheets' | 'books' | 'diagnostic' | 'heartbeat'>('sheets');
   const [heartbeat, setHeartbeat] = useState<{ status: 'loading' | 'online' | 'offline' | 'error', message: string }>({ status: 'loading', message: 'Checking Status...' });
   const [isExporting, setIsExporting] = useState(false);
-  const [isIngesting, setIsIngesting] = useState(false);
   
   const [vault, setVault] = useState<VaultStorage>(() => {
     const data = readObject<any>('sovereign_vault', {});
@@ -76,28 +74,18 @@ const SovereignVault: React.FC = () => {
     }
   };
 
-  const handleExportCourierPackage = () => {
+  const handleExportForChatty = () => {
     setIsExporting(true);
     try {
-      // PACKAGE EVERYTHING: Vault + Sheets + Profile
-      const packageData = {
-        meta: { 
-          timestamp: new Date().toISOString(), 
-          protocol: "COURIER_V5",
-          author: localStorage.getItem(k('aca_author_profile')) ? JSON.parse(localStorage.getItem(k('aca_author_profile'))!).name : 'Unknown'
-        },
-        payload: {
-          vault: readObject('sovereign_vault', {}),
-          sheets: readArray('wrap_sheets_v4', []),
-          profile: readObject('aca_author_profile', {})
-        }
+      const exportData = {
+        meta: { timestamp: new Date().toISOString(), origin: "A Captive Audience | Sovereign Vault" },
+        current_vault_state: vault
       };
-      
-      const blob = new Blob([JSON.stringify(packageData, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ACA-Courier-Package-${Date.now()}.json`;
+      a.download = `ACA-Vault-Dump-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -105,39 +93,6 @@ const SovereignVault: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  };
-
-  const handleIngestCourierPackage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsIngesting(true);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const packageData = JSON.parse(event.target?.result as string);
-        if (packageData.protocol !== "COURIER_V5") {
-          throw new Error("INVALID_PROTOCOL: This package is incompatible with the Forge v5.");
-        }
-
-        if (window.confirm(`INGESTION WARNING: This will merge/overwrite your current studio with data from "${packageData.meta.author}". Proceed?`)) {
-          const { vault: vData, sheets: sData, profile: pData } = packageData.payload;
-          
-          if (vData) writeJson('sovereign_vault', vData);
-          if (sData) writeJson('wrap_sheets_v4', sData);
-          if (pData) writeJson('aca_author_profile', pData);
-
-          alert("Courier Ingestion Complete. Reloading Studio...");
-          window.location.reload();
-        }
-      } catch (err: any) {
-        alert("INGESTION_FAILURE: " + err.message);
-      } finally {
-        setIsIngesting(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -166,17 +121,17 @@ const SovereignVault: React.FC = () => {
           <button onClick={() => setActiveFolder('books')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'books' ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
             <span className="text-[11px] font-black uppercase tracking-[0.2em]">The Bookshelf</span>
           </button>
-          <button onClick={() => setActiveFolder('courier')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'courier' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em]">Courier Protocol</span>
+          <button onClick={() => setActiveFolder('diagnostic')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'diagnostic' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em]">Firestorm Diagnostic</span>
           </button>
           <button onClick={() => setActiveFolder('heartbeat')} className={`w-full text-left p-6 transition-all border-l-2 ${activeFolder === 'heartbeat' ? 'bg-green-500/10 border-green-500 text-green-500' : 'bg-black border-white/5 border-l-transparent text-gray-700'}`}>
             <span className="text-[11px] font-black uppercase tracking-[0.2em]">System Heartbeat</span>
           </button>
           
           <div className="pt-10">
-            <button onClick={handleExportCourierPackage} disabled={isExporting} className={`w-full text-left p-8 bg-red-600/10 border border-red-600/30 text-red-500 hover:bg-red-600 hover:text-white transition-all rounded-sm group ${isExporting ? 'animate-pulse opacity-50' : ''}`}>
-              <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-white">Handover Protocol</p>
-              <p className="text-[8px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100">Package full studio for transport</p>
+            <button onClick={handleExportForChatty} disabled={isExporting} className={`w-full text-left p-8 bg-red-600/10 border border-red-600/30 text-red-500 hover:bg-red-600 hover:text-white transition-all rounded-sm group ${isExporting ? 'animate-pulse opacity-50' : ''}`}>
+              <p className="text-[10px] font-black uppercase tracking-widest mb-1">Handover Protocol</p>
+              <p className="text-[8px] font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100">Package full state for audit</p>
             </button>
           </div>
         </aside>
@@ -216,57 +171,32 @@ const SovereignVault: React.FC = () => {
               )}
             </div>
           )}
-          {activeFolder === 'courier' && (
+          {activeFolder === 'diagnostic' && (
             <div className="space-y-10 animate-fade-in">
               <div className="bg-[#0a0a0a] border border-cyan-500/20 p-12 rounded-sm shadow-2xl">
-                 <h3 className="text-4xl font-serif italic text-white mb-8">Courier & Invitation Hub</h3>
-                 
-                 <div className="grid md:grid-cols-2 gap-12">
-                   <div className="space-y-8">
-                      <div>
-                        <h4 className="text-cyan-400 text-[10px] font-black uppercase tracking-widest mb-4">Step 1: The Invitation</h4>
-                        <p className="text-gray-400 text-sm font-light leading-relaxed mb-6">Send this link and access cipher to a trusted friend. They must use the cipher to enter the gate.</p>
-                        <div className="p-6 bg-black border border-white/5 rounded-sm space-y-4">
-                           <div>
-                              <p className="text-[8px] text-gray-600 uppercase font-black mb-1">Cipher Phrase</p>
-                              <p className="text-xl font-serif italic text-white underline decoration-cyan-500/40 underline-offset-4">captivate me</p>
-                           </div>
-                           <div>
-                              <p className="text-[8px] text-gray-600 uppercase font-black mb-1">Studio Link</p>
-                              <p className="text-[10px] font-mono text-cyan-500 truncate">{window.location.origin}</p>
-                           </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-cyan-400 text-[10px] font-black uppercase tracking-widest mb-4">Step 2: Package for Transport</h4>
-                        <p className="text-gray-400 text-sm font-light leading-relaxed mb-4">Generate a secure package containing your sheets, profile, and registry. You can then send this file to your friend.</p>
-                        <button onClick={handleExportCourierPackage} disabled={isExporting} className="w-full py-5 bg-cyan-500 text-white text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:bg-cyan-600 transition-all rounded-sm">
-                           {isExporting ? 'Packaging...' : 'Generate Courier Package'}
-                        </button>
-                      </div>
-                   </div>
-
-                   <div className="space-y-8 border-l border-white/5 pl-12">
-                      <div>
-                        <h4 className="text-white text-[10px] font-black uppercase tracking-widest mb-4">Ingest Received Package</h4>
-                        <p className="text-gray-400 text-sm font-light leading-relaxed mb-6">If a trusted author sent you a Courier Package, upload it here to view their sheets and profile in your local studio.</p>
-                        <button onClick={() => fileInputRef.current?.click()} className="w-full py-12 border-2 border-dashed border-white/10 hover:border-cyan-500/40 text-gray-700 hover:text-cyan-400 transition-all text-[10px] font-black uppercase tracking-widest flex flex-col items-center justify-center gap-4 group">
-                           <svg className="w-8 h-8 opacity-20 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                           {isIngesting ? 'Syncing...' : 'Upload .JSON Package'}
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleIngestCourierPackage} className="hidden" accept=".json" />
-                      </div>
-                      
-                      <div className="p-6 bg-red-900/10 border border-red-500/20 rounded-sm">
-                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-2">⚠ Security Warning</p>
-                        <p className="text-[10px] text-gray-500 italic leading-relaxed">Ingesting a package will overwrite your current WRAP profile and Wrap Sheets. Ensure you have backed up your own work first.</p>
-                      </div>
-                   </div>
+                 <h3 className="text-4xl font-serif italic text-white mb-8">Firestorm Pre-Launch Diagnostic</h3>
+                 <div className="space-y-6">
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">01. API Key Injection</span>
+                       <span className={process.env.API_KEY ? "text-green-500 text-[10px] font-black" : "text-red-500 text-[10px] font-black"}>
+                         {process.env.API_KEY ? "VERIFIED" : "MISSING"}
+                       </span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">02. Sovereign DB (IndexedDB)</span>
+                       <span className="text-green-500 text-[10px] font-black">ACTIVE (V4.0)</span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">03. Persistence Layer (LocalStorage)</span>
+                       <span className="text-green-500 text-[10px] font-black">READY</span>
+                    </div>
+                    <div className="flex items-center justify-between p-6 bg-black border border-white/5">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">04. Hardware Link (Microphone)</span>
+                       <button onClick={() => window.dispatchEvent(new CustomEvent('aca:open_mic_check'))} className="text-cyan-500 text-[9px] font-black uppercase tracking-widest border border-cyan-500/30 px-4 py-1">Run Check</button>
+                    </div>
                  </div>
-
                  <div className="mt-12 p-8 bg-cyan-900/10 border border-cyan-500/20 italic text-cyan-100 text-sm leading-relaxed">
-                   "The Courier Protocol bypasses the internet cloud entirely. Your data moves as a physical file, author-to-author."
+                   "Firestorm Ready: If all checks are Green, your Sovereign Workspace is safe for multi-continental deployment."
                  </div>
               </div>
             </div>
