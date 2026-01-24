@@ -183,7 +183,7 @@ export const generateSpeech = async (text: string, voiceName: string = 'Puck') =
   return base64Audio;
 };
 
-export const connectLive = (callbacks: any, systemInstruction: string) => {
+export const connectLive = (callbacks: any, systemInstruction: string, voiceName: string = 'Zephyr') => {
   const ai = getAI();
   return ai.live.connect({
     model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -202,19 +202,14 @@ export const connectLive = (callbacks: any, systemInstruction: string) => {
       responseModalities: [Modality.AUDIO],
       systemInstruction,
       inputAudioTranscription: {},
-      outputAudioTranscription: {}, // Required for real-time model transcription
+      outputAudioTranscription: {}, 
       speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+        voiceConfig: { prebuiltVoiceConfig: { voiceName } }
       }
     },
   });
 };
 
-// --- Added missing exports to fix compilation errors in pages/Narratives.tsx, pages/Kindred.tsx, and pages/PublishedBooks.tsx ---
-
-/**
- * queryInsight: Used in Narratives.tsx to search the archive context with Search grounding.
- */
 export const queryInsight = async (message: string): Promise<Message> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
@@ -235,9 +230,6 @@ export const queryInsight = async (message: string): Promise<Message> => {
   return { role: 'assistant', content, sources };
 };
 
-/**
- * interactWithAurora: Used in Kindred.tsx for synthetic agent chat.
- */
 export const interactWithAurora = async (message: string): Promise<string> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
@@ -250,9 +242,6 @@ export const interactWithAurora = async (message: string): Promise<string> => {
   return response.text || "I am listening.";
 };
 
-/**
- * generateImage: Used in PublishedBooks.tsx for AI-driven book cover generation.
- */
 export const generateImage = async (description: string): Promise<{ imageUrl: string }> => {
   const ai = getAI();
   const industrialPrompt = `A high-quality, cinematic book cover for a prison narrative. Style: Minimalist, dramatic lighting, gritty texture, industrial aesthetic. Themes: ${description}. Aspect Ratio 16:9. Colors: Black, white, and high-contrast orange.`;

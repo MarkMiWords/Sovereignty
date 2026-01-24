@@ -2,33 +2,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Book } from '../types';
+import { readJson } from '../utils/safeStorage';
 
-// --- Sovereign Vault Core V4 Access ---
 const VAULT_NAME = 'aca_sovereign_registry';
 const VAULT_VERSION = 4;
 
 const openVault = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(VAULT_NAME, VAULT_VERSION);
-    request.onupgradeneeded = (event: any) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('books')) {
-        db.createObjectStore('books', { keyPath: 'id' });
-      }
-    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
-  });
-};
-
-const saveToVault = async (book: Book) => {
-  const db = await openVault();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction('books', 'readwrite');
-    const store = transaction.objectStore('books');
-    store.put(book);
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => reject(transaction.error);
   });
 };
 
@@ -42,28 +25,33 @@ const getFromVault = async (): Promise<Book[]> => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-  } catch (e) {
-    return [];
-  }
+  } catch (e) { return []; }
 };
 
 const Storefront: React.FC = () => {
   const [featuredBook, setFeaturedBook] = useState<Book | null>(null);
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadRegistry = async () => {
     setLoading(true);
     const registry = await getFromVault();
-    setAllBooks(registry);
+    const shadowRegistry = readJson<any[]>('shadow_book_registry', []);
     
-    // Priority: Flagship slug -> Newest Entry -> Fallback
-    let found = registry.find(b => b.slug === 'the-ivo-trap');
-    if (!found && registry.length > 0) {
-      found = registry[registry.length - 1];
+    let finalRegistry = registry;
+    
+    // Recovery path if primary DB is empty but shadow exists
+    if (finalRegistry.length === 0 && shadowRegistry.length > 0) {
+      finalRegistry = shadowRegistry.map(s => ({
+        ...s,
+        coverUrl: '' // Cover will need re-sync
+      }));
     }
+
+    setAllBooks(finalRegistry);
+    
+    let found = finalRegistry.find(b => b.slug === 'the-ivo-trap');
+    if (!found && finalRegistry.length > 0) found = finalRegistry[finalRegistry.length - 1];
     
     if (found) {
       setFeaturedBook(found);
@@ -87,34 +75,6 @@ const Storefront: React.FC = () => {
     loadRegistry();
   }, []);
 
-  const handleManualSync = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsSyncing(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      const updatedBook: Book = {
-        ...(featuredBook || {
-          id: 'ivo-master-1',
-          title: 'The IVO Trap',
-          author: 'Mark Mi Words',
-          description: '',
-          slug: 'the-ivo-trap',
-          releaseYear: '2024'
-        }),
-        coverUrl: base64,
-        slug: 'the-ivo-trap' // Force flagship slug for storefront persistence
-      };
-
-      await saveToVault(updatedBook);
-      await loadRegistry();
-      setIsSyncing(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
   if (loading || !featuredBook) {
     return (
       <div className="bg-[#020202] min-h-screen flex items-center justify-center">
@@ -125,7 +85,6 @@ const Storefront: React.FC = () => {
 
   return (
     <div className="bg-[#020202] min-h-screen text-white overflow-hidden pb-32">
-      {/* Cinematic Background */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-transparent to-[#020202] z-10"></div>
         {featuredBook.coverUrl && (
@@ -137,52 +96,29 @@ const Storefront: React.FC = () => {
         )}
       </div>
 
-      {/* Main Hero Showcase */}
       <div className="relative z-20 max-w-7xl mx-auto px-6 pt-12 md:pt-32">
         <div className="flex flex-col lg:flex-row items-center gap-20 lg:gap-32">
           
-          {/* Glorified Book Presentation */}
           <div className="w-full lg:w-1/2 flex flex-col items-center justify-center perspective-1000">
             <div className="relative group animate-float">
-              {/* Pulsating Multicolor Aura */}
               <div className="absolute -inset-4 bg-gradient-to-r from-orange-500 via-purple-500 to-cyan-500 rounded-lg blur-3xl opacity-40 group-hover:opacity-100 transition-opacity duration-1000 animate-pulsate-aura"></div>
-              
-              {/* Book Shadow Base */}
               <div className="absolute inset-2 bg-black blur-xl opacity-80 translate-x-8 translate-y-8"></div>
 
-              {/* The Book (The core placeholder window) */}
               <div className="relative z-10 w-[320px] md:w-[420px] aspect-[16/27] bg-[#0a0a0a] border-l-[12px] border-black shadow-2xl rounded-r-sm overflow-hidden transform rotate-y-[-5deg] transition-all duration-700 group-hover:rotate-y-[0deg]">
                 {featuredBook.coverUrl ? (
-                  <img 
-                    src={featuredBook.coverUrl} 
-                    className="w-full h-full object-contain block opacity-100"
-                    alt={`${featuredBook.title} Master Cover`}
-                  />
+                  <img src={featuredBook.coverUrl} className="w-full h-full object-contain block opacity-100" alt={`${featuredBook.title} Master Cover`} />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-800 text-[9px] font-black uppercase tracking-widest text-center px-12">
-                    Awaiting Master Asset
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 p-12 text-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest mb-4">Shadow Registry Active</p>
+                    <span className="text-[8px] border border-orange-500/30 px-3 py-1 text-orange-500">Master Sync Required</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent"></div>
               </div>
-
-              {/* Glow Accents on Edges */}
               <div className="absolute -inset-[2px] rounded-r-sm border border-white/10 z-20 pointer-events-none"></div>
-            </div>
-
-            {/* Emergency Master Sync (Hidden Input) */}
-            <div className="mt-8 flex items-center gap-4">
-               <button 
-                 onClick={() => fileInputRef.current?.click()}
-                 className={`px-6 py-3 border border-white/10 text-[8px] font-black uppercase tracking-widest hover:border-orange-500 hover:text-orange-500 transition-all rounded-sm ${isSyncing ? 'animate-pulse' : ''}`}
-               >
-                 {isSyncing ? 'Syncing...' : 'Emergency Master Sync'}
-               </button>
-               <input type="file" ref={fileInputRef} onChange={handleManualSync} className="hidden" accept="image/png,image/jpeg" />
             </div>
           </div>
 
-          {/* Promotional Copy (Pulling from Registry) */}
           <div className="w-full lg:w-1/2 space-y-12">
             <div className="space-y-6">
               <span className="text-[var(--accent)] tracking-[0.8em] uppercase text-[11px] font-black block animate-pulse">Featured Masterpiece</span>
@@ -202,25 +138,13 @@ const Storefront: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-8 pt-8">
-              <a 
-                href={featuredBook.buyUrl || "https://www.ingramspark.com/"} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex-grow bg-[#0096d6] text-white px-12 py-8 font-black tracking-[0.6em] uppercase text-[11px] text-center shadow-2xl hover:brightness-110 transition-all rounded-sm"
-              >
-                Acquire Physical Edition
-              </a>
-              <Link 
-                to={`/book/${featuredBook.slug}`} 
-                className="px-12 py-8 border border-white/10 text-white font-black tracking-[0.6em] uppercase text-[11px] text-center hover:bg-white hover:text-black transition-all rounded-sm"
-              >
-                Examine Metadata
-              </Link>
+              <a href={featuredBook.buyUrl || "https://www.ingramspark.com/"} target="_blank" rel="noopener noreferrer" className="flex-grow bg-[#0096d6] text-white px-12 py-8 font-black tracking-[0.6em] uppercase text-[11px] text-center shadow-2xl hover:brightness-110 transition-all rounded-sm">Acquire Physical Edition</a>
+              <Link to={`/book/${featuredBook.slug}`} className="px-12 py-8 border border-white/10 text-white font-black tracking-[0.6em] uppercase text-[11px] text-center hover:bg-white hover:text-black transition-all rounded-sm">Examine Metadata</Link>
             </div>
 
             <div className="pt-12 border-t border-white/5 flex items-center gap-8">
                <div className="text-center">
-                  <p className="text-white text-xl font-serif italic">LIVE</p>
+                  <p className="text-white text-xl font-serif italic">{featuredBook.coverUrl ? 'LIVE' : 'META'}</p>
                   <p className="text-[8px] text-gray-700 font-black uppercase tracking-widest">Vault Status</p>
                </div>
                <div className="h-8 w-[1px] bg-white/5"></div>
@@ -238,7 +162,6 @@ const Storefront: React.FC = () => {
         </div>
       </div>
 
-      {/* Dynamic Registry Archive Grid */}
       <div className="relative z-20 max-w-7xl mx-auto px-6 mt-48">
         <div className="flex items-end justify-between border-b border-white/5 pb-12 mb-16">
            <div>
@@ -249,49 +172,36 @@ const Storefront: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
-           {allBooks.length > 0 ? (
-             allBooks.map((book) => (
-               <Link key={book.id} to={`/book/${book.slug}`} className="group space-y-4">
-                  <div className="aspect-[16/27] bg-[#0a0a0a] border-l-4 border-black group-hover:border-[var(--accent)] transition-all overflow-hidden rounded-r-sm relative shadow-xl">
+           {allBooks.map((book) => (
+             <Link key={book.id} to={`/book/${book.slug}`} className="group space-y-4">
+                <div className="aspect-[16/27] bg-[#0a0a0a] border-l-4 border-black group-hover:border-[var(--accent)] transition-all overflow-hidden rounded-r-sm relative shadow-xl">
+                   {book.coverUrl ? (
                      <img src={book.coverUrl} className="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" alt={book.title} />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white">View Details</span>
+                   ) : (
+                     <div className="w-full h-full flex flex-col items-center justify-center text-gray-800 text-[7px] font-black uppercase tracking-tighter">
+                       <span>Shadow Metadata Only</span>
                      </div>
-                  </div>
-                  <div className="space-y-1">
-                     <h3 className="text-xs font-black uppercase tracking-widest text-white truncate">{book.title}</h3>
-                     <p className="text-[8px] text-gray-600 uppercase font-black">{book.author}</p>
-                  </div>
-               </Link>
-             ))
-           ) : (
-             <div className="col-span-full py-24 text-center border border-dashed border-white/5 rounded-sm">
-                <p className="text-gray-800 text-[10px] font-black uppercase tracking-[0.4em]">Archive Link Standby... Registry Empty</p>
-             </div>
-           )}
+                   )}
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-white">View Details</span>
+                   </div>
+                </div>
+                <div className="space-y-1">
+                   <h3 className="text-xs font-black uppercase tracking-widest text-white truncate">{book.title}</h3>
+                   <p className="text-[8px] text-gray-600 uppercase font-black">{book.author}</p>
+                </div>
+             </Link>
+           ))}
         </div>
       </div>
 
       <style>{`
-        @keyframes drift {
-          0% { transform: scale(1.1) translate(0, 0); }
-          50% { transform: scale(1.15) translate(-1%, -1%); }
-          100% { transform: scale(1.1) translate(0, 0); }
-        }
+        @keyframes drift { 0% { transform: scale(1.1) translate(0, 0); } 50% { transform: scale(1.15) translate(-1%, -1%); } 100% { transform: scale(1.1) translate(0, 0); } }
         .animate-subtle-drift { animation: drift 20s infinite ease-in-out; }
-        
-        @keyframes pulsate-aura {
-          0%, 100% { transform: scale(1); opacity: 0.3; filter: blur(30px) hue-rotate(0deg); }
-          50% { transform: scale(1.1); opacity: 0.6; filter: blur(50px) hue-rotate(180deg); }
-        }
+        @keyframes pulsate-aura { 0%, 100% { transform: scale(1); opacity: 0.3; filter: blur(30px) hue-rotate(0deg); } 50% { transform: scale(1.1); opacity: 0.6; filter: blur(50px) hue-rotate(180deg); } }
         .animate-pulsate-aura { animation: pulsate-aura 8s infinite ease-in-out; }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-20px); }
-        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         .animate-float { animation: float 6s infinite ease-in-out; }
-
         .perspective-1000 { perspective: 1000px; }
         .rotate-y-[-5deg] { transform: rotateY(-15deg); }
         .group-hover\:rotate-y-\[0deg\]:hover { transform: rotateY(0deg); }
