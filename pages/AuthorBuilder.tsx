@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { queryPartner, smartSoap, articulateText, connectLive, generateSpeech } from '../services/geminiService';
+import { queryPartner, smartSoap, articulateText, connectLive, generateSpeech, generateImage } from '../services/geminiService';
 import { Message, Chapter, VaultStorage, VaultSheet } from '../types';
 import { readJson, writeJson } from '../utils/safeStorage';
 import { LiveServerMessage } from '@google/genai';
@@ -66,6 +66,11 @@ const AuthorBuilder: React.FC = () => {
   const [isAcousticActive, setIsAcousticActive] = useState(false);
   const [activeRevisionType, setActiveRevisionType] = useState<string | null>(null);
   const [hasBeenRinsed, setHasBeenRinsed] = useState(false);
+
+  // Cinematic Visual States
+  const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+  const [activeSceneImage, setActiveSceneImage] = useState<string | null>(null);
+  const [showSceneMood, setShowSceneMood] = useState(true);
 
   // CONTEXT PERSISTENCE
   const [style, setStyle] = useState(() => readJson<any>('aca_author_profile', {}).motivation || STYLES[2]);
@@ -143,6 +148,7 @@ const AuthorBuilder: React.FC = () => {
     setChapters(prev => [{ ...DEFAULT_CHAPTER, id: newId, title: "" }, ...prev]); 
     setActiveChapterId(newId);
     setHasBeenRinsed(false);
+    setActiveSceneImage(null);
     setTimeout(() => titleInputRef.current?.focus(), 50);
   };
 
@@ -220,6 +226,22 @@ const AuthorBuilder: React.FC = () => {
         setIsProcessingRevise(false); 
         setIsProcessingPolish(false); 
         setActiveRevisionType(null);
+    }
+  };
+
+  const handleForgeScene = async () => {
+    if (!activeChapter.content?.trim() || isGeneratingScene) return;
+    setIsGeneratingScene(true);
+    setIsProcessingWrite(true); 
+    try {
+      const result = await generateImage(activeChapter.content.substring(0, 500), true);
+      setActiveSceneImage(result.imageUrl);
+      setShowSceneMood(true);
+    } catch (err) {
+      alert("Forge Scene failed. Acoustic conditions might be unstable.");
+    } finally {
+      setIsGeneratingScene(false);
+      setIsProcessingWrite(false);
     }
   };
 
@@ -384,9 +406,33 @@ const AuthorBuilder: React.FC = () => {
     setDictationTarget(null);
   };
 
+  const anyProcessing = isProcessingWrite || isProcessingRevise || isProcessingSpeak || isProcessingPolish || isGeneratingScene;
+
   return (
-    <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden">
-      <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808] flex flex-col shrink-0 transition-all relative pt-20">
+    <div className="flex h-[calc(100vh-6rem)] bg-[#020202] text-white overflow-hidden relative">
+      
+      {/* GLOBAL FORGE STROBE OVERLAY - AGGRESSIVE INDUSTRIAL FEEDBACK */}
+      {anyProcessing && (
+        <div className={`fixed inset-0 z-[1000] pointer-events-none mix-blend-screen opacity-30 transition-all duration-300
+          ${isProcessingWrite || isGeneratingScene ? 'animate-global-strobe-amber' : ''}
+          ${isProcessingRevise ? 'animate-global-strobe-red' : ''}
+          ${isProcessingSpeak ? 'animate-global-strobe-blue' : ''}
+          ${isProcessingPolish ? 'animate-global-strobe-green' : ''}
+        `}></div>
+      )}
+
+      {/* CINEMATIC BACKDROP LAYER - DYNAMIC SKIN */}
+      {activeSceneImage && showSceneMood && (
+        <div className="absolute inset-0 z-0 transition-all duration-[3000ms] animate-mood-fade-in pointer-events-none">
+           <img src={activeSceneImage} className="w-full h-full object-cover opacity-[0.28] grayscale brightness-[0.35] blur-[10px] scale-[1.05] contrast-[1.6]" alt="Scene Mood" />
+           <div className="absolute inset-0 bg-gradient-to-b from-[#020202] via-transparent to-[#020202] opacity-90"></div>
+           <div className="absolute inset-0 bg-gradient-to-r from-[#020202] via-transparent to-[#020202] opacity-80"></div>
+           <div className="absolute inset-0 bg-black/40 mix-blend-multiply"></div>
+           <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url('https://www.transparenttextures.com/patterns/stardust.png')` }}></div>
+        </div>
+      )}
+
+      <aside style={{ width: `${navWidth}px` }} className="border-r border-white/10 bg-[#080808]/90 backdrop-blur-xl flex flex-col shrink-0 transition-all relative pt-20 z-50">
         <div className="px-8 mb-6 space-y-4">
            <button onClick={handleNewSheet} className="w-full py-3 animate-living-amber-bg text-white text-[9px] font-black uppercase tracking-[0.4em] hover:brightness-110 transition-all shadow-xl rounded-sm">
              + New Sheet
@@ -402,7 +448,7 @@ const AuthorBuilder: React.FC = () => {
         </div>
         <div className="flex-grow overflow-y-auto custom-scrollbar">
           {chapters.filter(c => c.id !== activeChapterId).map(c => (
-            <div key={c.id} onClick={() => { setActiveChapterId(c.id); setHasBeenRinsed(false); }} className="py-5 px-10 cursor-pointer border-l-4 border-transparent text-gray-700 hover:bg-white/5 hover:text-gray-400 transition-all">
+            <div key={c.id} onClick={() => { setActiveChapterId(c.id); setHasBeenRinsed(false); setActiveSceneImage(null); }} className="py-5 px-10 cursor-pointer border-l-4 border-transparent text-gray-700 hover:bg-white/5 hover:text-gray-400 transition-all">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] truncate">{c.title || 'Untitled Sheet'}</p>
             </div>
           ))}
@@ -415,18 +461,17 @@ const AuthorBuilder: React.FC = () => {
         </div>
       </aside>
 
-      <div onMouseDown={() => { isResizingNav.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-50 transition-colors"></div>
+      <div onMouseDown={() => { isResizingNav.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-[60] transition-colors"></div>
 
-      <main className="flex-grow flex flex-col relative overflow-hidden bg-[#020202]">
-        <div className="shrink-0 h-24 bg-black flex items-stretch border-b border-white/10 relative z-50">
+      <main className="flex-grow flex flex-col relative overflow-hidden bg-transparent z-40">
+        <div className="shrink-0 h-24 bg-black/60 backdrop-blur-md flex items-stretch border-b border-white/10 relative z-50">
             {/* WRITE BLOCK */}
             <div 
-              onClick={() => { if (isDictating && dictationTarget === 'sheet') stopDictation(); }}
-              className={`flex-1 group/write relative cursor-pointer transition-all border-r border-white/5 ${isProcessingWrite ? 'bg-amber-500/10' : 'hover:bg-white/[0.02]'} ${(isDictating && dictationTarget === 'sheet') ? 'neon-border-amber' : ''}`}
+              className={`flex-1 group/write relative cursor-pointer transition-all border-r border-white/5 ${isProcessingWrite ? 'animate-strobe-amber' : 'hover:bg-white/[0.02]'} ${(isDictating && dictationTarget === 'sheet') ? 'neon-border-amber' : ''}`}
             >
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${(isProcessingWrite || (isDictating && dictationTarget === 'sheet')) ? 'text-[var(--accent)]' : 'text-gray-700 group-hover/write:text-[var(--accent)]'}`}>
-                    <span className="text-2xl mr-0.5">W</span>rite
+                    <span className="text-2xl mr-0.5">{isProcessingWrite ? '...' : 'W'}</span>rite
                   </span>
                </div>
                <div className="absolute top-full left-0 w-64 bg-black border border-[var(--accent)] shadow-2xl z-[100] opacity-0 invisible group-hover/write:opacity-100 group-hover/write:visible translate-y-2 group-hover/write:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
@@ -434,22 +479,19 @@ const AuthorBuilder: React.FC = () => {
                   <button onClick={(e) => { e.stopPropagation(); startDictation('sheet'); }} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${dictationTarget === 'sheet' ? 'animate-pulse text-[var(--accent)] font-bold' : 'text-white/40 hover:text-[var(--accent)]'}`}>
                     {dictationTarget === 'sheet' ? 'Recording...' : 'Dictation'}
                   </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleForgeScene(); }} disabled={isGeneratingScene} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${isGeneratingScene ? 'animate-pulse text-[var(--accent)]' : 'text-white/40 hover:text-orange-500'}`}>
+                    {isGeneratingScene ? 'Forging Scene...' : 'Visualize Scene'}
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); handleSoap('dogg_me', 'revise'); }} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-[var(--accent)] hover:bg-white/5 border-b border-white/5 transition-colors">Make it a Poem</button>
-                  <Link to="/wrapper-info" className="block w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-[var(--accent)] hover:bg-white/5 border-b border-white/5 transition-colors">WRAP Profile</Link>
                </div>
             </div>
 
             {/* REVISE BLOCK */}
             <div className={`flex-1 group/revise relative cursor-pointer transition-all border-r border-white/5 
-                ${isProcessingRevise ? (
-                    activeRevisionType === 'rinse' ? 'neon-border-green' :
-                    activeRevisionType === 'wash' ? 'neon-border-amber' :
-                    activeRevisionType === 'scrub' ? 'neon-border-red' :
-                    activeRevisionType === 'fact_check' ? 'neon-border-blue' : 'bg-red-900/10'
-                ) : 'hover:bg-white/[0.02]'}`}>
+                ${isProcessingRevise ? 'animate-strobe-red' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingRevise ? 'text-red-500' : 'text-gray-700 group-hover/revise:text-red-500'}`}>
-                    <span className="text-2xl mr-0.5">R</span>evise
+                    <span className="text-2xl mr-0.5">{isProcessingRevise ? '...' : 'R'}</span>evise
                   </span>
                </div>
                <div className="absolute top-full left-0 w-64 bg-black border border-red-600 shadow-2xl z-[100] opacity-0 invisible group-hover/revise:opacity-100 group-hover/revise:visible translate-y-2 group-hover/revise:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
@@ -463,11 +505,11 @@ const AuthorBuilder: React.FC = () => {
             {/* ARTICULATE BLOCK */}
             <div 
                 onClick={handleArticulate}
-                className={`flex-1 group/articulate relative cursor-pointer transition-all border-r border-white/5 ${(isProcessingSpeak || isAcousticActive) ? 'neon-border-blue' : 'hover:bg-white/[0.02]'}`}
+                className={`flex-1 group/articulate relative cursor-pointer transition-all border-r border-white/5 ${isProcessingSpeak ? 'animate-strobe-blue' : 'hover:bg-white/[0.02]'}`}
             >
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${(isProcessingSpeak || isAcousticActive) ? 'text-blue-500' : 'text-gray-700 group-hover/articulate:text-blue-500'}`}>
-                    <span className="text-2xl mr-0.5">A</span>rticulate
+                    <span className="text-2xl mr-0.5">{isProcessingSpeak ? '...' : 'A'}</span>rticulate
                   </span>
                </div>
                <div className="absolute top-full left-0 w-80 bg-black border border-blue-500 shadow-2xl z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
@@ -520,10 +562,10 @@ const AuthorBuilder: React.FC = () => {
             </div>
 
             {/* POLISH BLOCK */}
-            <div className={`flex-1 group/polish relative cursor-pointer transition-all ${isProcessingPolish ? 'neon-border-green' : 'hover:bg-white/[0.02]'}`}>
+            <div className={`flex-1 group/polish relative cursor-pointer transition-all ${isProcessingPolish ? 'animate-strobe-green' : 'hover:bg-white/[0.02]'}`}>
                <div className="h-full flex flex-col items-center justify-center relative z-10">
                   <span className={`text-[11px] font-black tracking-[0.4em] uppercase transition-all duration-300 ${isProcessingPolish ? 'text-green-500' : 'text-gray-700 group-hover/polish:text-green-500'}`}>
-                    <span className="text-2xl mr-0.5">P</span>olish
+                    <span className="text-2xl mr-0.5">{isProcessingPolish ? '...' : 'P'}</span>olish
                   </span>
                </div>
                <div className="absolute top-full right-0 w-64 bg-black border border-green-500 shadow-2xl z-[100] opacity-0 invisible group-hover/polish:opacity-100 group-hover/polish:visible translate-y-2 group-hover/polish:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
@@ -535,7 +577,7 @@ const AuthorBuilder: React.FC = () => {
             </div>
         </div>
 
-        <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar bg-[#020202]">
+        <div className="flex-grow flex flex-col overflow-y-auto custom-scrollbar bg-transparent">
           <div className="py-4 bg-[#030303]/40 border-b border-white/5 px-12">
                <input 
                  ref={titleInputRef}
@@ -549,7 +591,18 @@ const AuthorBuilder: React.FC = () => {
                  placeholder="Draft Title..."
                />
           </div>
-          <div className="px-12 py-6 flex flex-grow">
+          <div className="px-12 py-6 flex flex-grow relative">
+               {/* SIDE PINNED POLAROID */}
+               {activeSceneImage && (
+                 <div className="hidden lg:block absolute right-12 top-6 w-48 animate-polaroid-entry group z-20">
+                    <div className="bg-white p-2 pb-10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] -rotate-3 transition-all duration-500 hover:rotate-0 hover:scale-110 cursor-pointer relative overflow-hidden border border-white/10">
+                       <img src={activeSceneImage} className="w-full h-auto grayscale-[0.2] brightness-90 group-hover:grayscale-0 group-hover:brightness-110 transition-all" alt="Scene Polaroid" />
+                       <div className="absolute bottom-2 left-0 w-full text-center text-[8px] text-gray-500 font-serif italic tracking-tighter">Scene Manifested.</div>
+                       <button onClick={() => setShowSceneMood(!showSceneMood)} className="absolute top-2 right-2 bg-black/80 text-white w-5 h-5 rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">👁</button>
+                    </div>
+                 </div>
+               )}
+
                <textarea 
                  ref={contentInputRef}
                  value={activeChapter.content} 
@@ -557,7 +610,7 @@ const AuthorBuilder: React.FC = () => {
                     setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: e.target.value } : c));
                     setHasBeenRinsed(false);
                  }} 
-                 className="w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-400 text-2xl font-serif leading-[1.8] placeholder:text-white/5" 
+                 className="w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-300 text-2xl font-serif leading-[1.8] placeholder:text-white/5 relative z-10 drop-shadow-xl" 
                  placeholder="Start writing..." 
                />
           </div>
@@ -577,13 +630,21 @@ const AuthorBuilder: React.FC = () => {
                 <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-cyan-500 shadow-[0_0_8px_#06b6d4]'}`}></div>
                 <span className={`text-[7px] font-bold ${isSaving ? 'text-amber-500' : 'text-cyan-500'}`}>{isSaving ? 'SAVING...' : 'SECURED'}</span>
               </div>
+              {activeSceneImage && (
+                <>
+                  <div className="h-3 w-[1px] bg-white/5"></div>
+                  <button onClick={() => setShowSceneMood(!showSceneMood)} className={`text-[7px] font-black uppercase tracking-widest transition-colors ${showSceneMood ? 'text-orange-500' : 'text-gray-700 hover:text-orange-300'}`}>
+                    {showSceneMood ? 'Atmosphere: ON' : 'Atmosphere: OFF'}
+                  </button>
+                </>
+              )}
            </div>
         </div>
       </main>
 
-      <div onMouseDown={() => { isResizingNav.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-50 transition-colors"></div>
+      <div onMouseDown={() => { isResizingNav.current = true; document.body.style.cursor = 'ew-resize'; }} className="w-1 bg-white/5 hover:bg-[var(--accent)] cursor-ew-resize z-[60] transition-colors"></div>
 
-      <aside className="border-l border-white/10 bg-[#080808] flex flex-col shrink-0 relative transition-all" style={{ width: `${partnerWidth}px` }}>
+      <aside className="border-l border-white/10 bg-[#080808]/90 backdrop-blur-xl flex flex-col shrink-0 relative transition-all z-50" style={{ width: `${partnerWidth}px` }}>
         <div className="p-10 border-b border-white/10 bg-black flex items-center justify-between">
              <Link to="/wrapper-info" className="flex items-center gap-4 group">
                 <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></div>
@@ -666,6 +727,67 @@ const AuthorBuilder: React.FC = () => {
            </div>
         </div>
       )}
+
+      <style>{`
+        /* GLOBAL ATMOSPHERIC FORGE STROBE */
+        @keyframes global-strobe-amber {
+          0%, 100% { background-color: rgba(230, 126, 34, 0); }
+          50% { background-color: rgba(230, 126, 34, 0.4); }
+        }
+        @keyframes global-strobe-red {
+          0%, 100% { background-color: rgba(231, 76, 60, 0); }
+          50% { background-color: rgba(231, 76, 60, 0.4); }
+        }
+        @keyframes global-strobe-blue {
+          0%, 100% { background-color: rgba(52, 152, 219, 0); }
+          50% { background-color: rgba(52, 152, 219, 0.4); }
+        }
+        @keyframes global-strobe-green {
+          0%, 100% { background-color: rgba(46, 204, 113, 0); }
+          50% { background-color: rgba(46, 204, 113, 0.4); }
+        }
+
+        .animate-global-strobe-amber { animation: global-strobe-amber 0.6s infinite ease-in-out; }
+        .animate-global-strobe-red { animation: global-strobe-red 0.5s infinite ease-in-out; }
+        .animate-global-strobe-blue { animation: global-strobe-blue 0.8s infinite ease-in-out; }
+        .animate-global-strobe-green { animation: global-strobe-green 0.7s infinite ease-in-out; }
+
+        @keyframes strobe-amber {
+          0%, 100% { box-shadow: inset 0 0 20px rgba(230, 126, 34, 0.4); background: rgba(230, 126, 34, 0.05); }
+          50% { box-shadow: inset 0 0 40px rgba(230, 126, 34, 0.8); background: rgba(230, 126, 34, 0.15); }
+        }
+        @keyframes strobe-red {
+          0%, 100% { box-shadow: inset 0 0 20px rgba(231, 76, 60, 0.4); background: rgba(231, 76, 60, 0.05); }
+          50% { box-shadow: inset 0 0 40px rgba(231, 76, 60, 0.8); background: rgba(231, 76, 60, 0.15); }
+        }
+        @keyframes strobe-blue {
+          0%, 100% { box-shadow: inset 0 0 20px rgba(52, 152, 219, 0.4); background: rgba(52, 152, 219, 0.05); }
+          50% { box-shadow: inset 0 0 40px rgba(52, 152, 219, 0.8); background: rgba(52, 152, 219, 0.15); }
+        }
+        @keyframes strobe-green {
+          0%, 100% { box-shadow: inset 0 0 20px rgba(46, 204, 113, 0.4); background: rgba(46, 204, 113, 0.05); }
+          50% { box-shadow: inset 0 0 40px rgba(46, 204, 113, 0.8); background: rgba(46, 204, 113, 0.15); }
+        }
+
+        .animate-strobe-amber { animation: strobe-amber 1.5s infinite ease-in-out; }
+        .animate-strobe-red { animation: strobe-red 1.2s infinite ease-in-out; }
+        .animate-strobe-blue { animation: strobe-blue 2s infinite ease-in-out; }
+        .animate-strobe-green { animation: strobe-green 1.8s infinite ease-in-out; }
+
+        @keyframes mood-fade-in {
+          0% { opacity: 0; filter: blur(30px); transform: scale(1.2); }
+          100% { opacity: 0.28; filter: blur(10px); transform: scale(1.05); }
+        }
+        .animate-mood-fade-in { animation: mood-fade-in 6s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+
+        @keyframes polaroid-entry {
+          0% { opacity: 0; transform: translateY(40px) rotate(12deg) scale(0.7); }
+          100% { opacity: 1; transform: translateY(0) rotate(-3deg) scale(1); }
+        }
+        .animate-polaroid-entry { animation: polaroid-entry 2s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+
+        .neon-border-amber { box-shadow: inset 0 0 15px rgba(245, 158, 11, 0.5); border: 1px solid rgba(245, 158, 11, 0.3); }
+      `}</style>
       <input type="file" ref={fileInputRef} className="hidden" accept=".docx,.txt" onChange={handleFileImport} />
     </div>
   );

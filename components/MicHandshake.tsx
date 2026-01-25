@@ -13,11 +13,6 @@ const MicHandshake: React.FC = () => {
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const hasCalibrated = sessionStorage.getItem('aca_handshake_v2_complete') === 'true';
-    if (!hasCalibrated) {
-      setShow(true);
-    }
-
     const handleManualTrigger = () => {
       setStatus('idle');
       setLevel(0);
@@ -44,21 +39,17 @@ const MicHandshake: React.FC = () => {
   const startCalibration = async () => {
     setStatus('calibrating');
     try {
-      // Tablets require explicit autoGainControl and echoCancellation for link stability
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           noiseSuppression: isNoiseCancelled,
           echoCancellation: true,
-          autoGainControl: true,
-          channelCount: 1
+          autoGainControl: true
         } 
       });
       
       streamRef.current = stream;
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioContextRef.current = ctx;
-      
-      // CRITICAL: Tablet browsers strictly block audio context until resumed inside a click handler
       if (ctx.state === 'suspended') await ctx.resume();
 
       const source = ctx.createMediaStreamSource(stream);
@@ -73,26 +64,17 @@ const MicHandshake: React.FC = () => {
       const checkLevel = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
-        
         let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        
+        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
         const average = sum / bufferLength;
         const normalized = Math.min(100, (average / 128) * 100);
         setLevel(normalized);
-        
-        // Lowered detection threshold for tablet built-in mics (from 20 to 10)
-        if (normalized > 10) { 
-           setStatus('ready');
-        }
+        if (normalized > 10) setStatus('ready');
         animationRef.current = requestAnimationFrame(checkLevel);
       };
 
       checkLevel();
     } catch (err) {
-      console.error("Acoustic Handshake System Failure:", err);
       setStatus('denied');
     }
   };
@@ -107,111 +89,41 @@ const MicHandshake: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[5000] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6 animate-fade-in">
-      <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, var(--accent) 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+      <div className="max-w-xl w-full bg-[#0a0a0a] border border-white/10 p-12 rounded-sm shadow-2xl relative">
+        <button onClick={() => setShow(false)} className="absolute top-6 right-6 text-gray-700 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+        <div className="text-center space-y-6">
+          <span className="text-[var(--accent)] tracking-[0.5em] uppercase text-[9px] font-black block">Acoustic Link</span>
+          <h2 className="text-4xl font-serif italic text-white tracking-tighter uppercase">Calibration.</h2>
+          <p className="text-gray-500 text-sm italic font-light">"Before establishing an acoustic link, let's make sure your environment is ready for transcription."</p>
+        </div>
 
-      <div className="max-w-xl w-full bg-[#0a0a0a] border border-white/10 p-12 rounded-sm shadow-[0_0_150px_rgba(0,0,0,1)] relative overflow-hidden">
-        <button 
-          onClick={() => setShow(false)}
-          className="absolute top-6 right-6 text-gray-800 hover:text-white transition-colors text-2xl leading-none z-20"
-          title="Skip Calibration"
-        >
-          &times;
-        </button>
+        <div className="mt-10 space-y-8">
+          {status === 'idle' && (
+            <button onClick={startCalibration} className="w-full py-6 animate-living-amber-bg text-white text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl transition-all rounded-sm">Initiate Mic Link</button>
+          )}
 
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50"></div>
-        
-        <div className="relative z-10 space-y-10">
-          <div className="text-center space-y-4">
-            <div className="flex justify-center gap-2 mb-4">
-               {[...Array(3)].map((_, i) => (
-                 <div key={i} className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" style={{ animationDelay: `${i * 0.2}s` }}></div>
-               ))}
+          {(status === 'calibrating' || status === 'ready') && (
+            <div className="space-y-6">
+              <div className="h-16 bg-black border border-white/5 rounded-sm overflow-hidden flex items-end gap-1 p-2">
+                 {[...Array(20)].map((_, i) => (
+                   <div key={i} className="flex-grow bg-[var(--accent)] transition-all duration-75" style={{ height: `${level > 5 ? (Math.random() * level + 10) : 5}%`, opacity: 0.3 + (i / 20) }}></div>
+                 ))}
+              </div>
             </div>
-            <span className="text-[var(--accent)] tracking-[1em] uppercase text-[9px] font-black block">Acoustic Link v4.4 (Tablet Optimized)</span>
-            <h2 className="text-5xl font-serif font-black italic text-white tracking-tighter leading-none">Hardware <br/><span className="text-[var(--accent)]">Verification.</span></h2>
-            <p className="text-gray-500 text-sm italic font-light leading-relaxed max-w-sm mx-auto">
-              "Establishing link from local hardware to the Sovereign Forge application."
-            </p>
-          </div>
+          )}
 
-          <div className="space-y-8">
-            {status === 'idle' && (
-              <button 
-                onClick={startCalibration}
-                className="w-full py-6 animate-living-amber-bg text-white text-[11px] font-black uppercase tracking-[0.5em] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all rounded-sm"
-              >
-                Engage Acoustic Link
-              </button>
-            )}
+          {status === 'ready' && (
+            <button onClick={closeHandshake} className="w-full py-6 bg-green-500 text-white text-[11px] font-black uppercase tracking-[0.5em] rounded-sm hover:brightness-110 shadow-xl">Complete Calibration</button>
+          )}
 
-            {(status === 'calibrating' || status === 'ready') && (
-              <div className="space-y-6">
-                <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-gray-500 mb-2">
-                   <span>Oscilloscope Feed</span>
-                   <span className={level > 10 ? 'text-green-500 animate-pulse' : 'text-orange-500'}>
-                     {level > 10 ? 'SIGNAL DETECTED' : 'Awaiting Input...'}
-                   </span>
-                </div>
-                
-                <div className="h-20 bg-black border border-white/5 rounded-sm overflow-hidden flex items-end gap-[2px] p-4 relative">
-                   <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(var(--accent) 1px, transparent 1px), linear-gradient(90deg, var(--accent) 1px, transparent 1px)', backgroundSize: '10px 10px' }}></div>
-                   {[...Array(30)].map((_, i) => {
-                     const height = level > 1 ? (Math.random() * level + 10) : 5;
-                     return (
-                       <div 
-                         key={i} 
-                         className={`flex-grow transition-all duration-75 ${level > 10 ? 'bg-[var(--accent)]' : 'bg-gray-800'}`}
-                         style={{ 
-                           height: `${Math.max(5, height)}%`,
-                           opacity: 0.2 + (i / 30)
-                         }}
-                       ></div>
-                     );
-                   })}
-                </div>
-                
-                <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-sm">
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-black text-white uppercase tracking-widest">Atmospheric Scrubbing</p>
-                      <p className="text-[9px] text-gray-600 italic">Hardware noise suppression is active.</p>
-                   </div>
-                   <button 
-                     onClick={() => setIsNoiseCancelled(!isNoiseCancelled)}
-                     className={`w-14 h-7 rounded-full transition-all relative ${isNoiseCancelled ? 'bg-green-500' : 'bg-gray-800'}`}
-                   >
-                     <div className={`absolute top-1.5 w-4 h-4 rounded-full bg-white transition-all ${isNoiseCancelled ? 'left-8' : 'left-1.5'}`}></div>
-                   </button>
-                </div>
-              </div>
-            )}
-
-            {status === 'ready' && (
-              <button 
-                onClick={closeHandshake}
-                className="w-full py-6 bg-green-500 text-white text-[11px] font-black uppercase tracking-[0.5em] shadow-[0_0_50px_rgba(34,197,94,0.4)] animate-fade-in rounded-sm hover:brightness-110"
-              >
-                Access Granted: Enter Forge
-              </button>
-            )}
-
-            {status === 'denied' && (
-              <div className="p-8 bg-red-500/10 border border-red-500/30 text-center rounded-sm space-y-4">
-                <div className="text-red-500 text-[20px] mb-2">⚠</div>
-                <p className="text-red-500 text-[10px] font-black uppercase tracking-widest leading-none">Handshake Severed</p>
-                <p className="text-gray-500 text-xs italic leading-relaxed">
-                  The link from local mic to app was blocked. Ensure "Microphone" is set to "Allow" in your tablet's browser settings.
-                </p>
-                <button onClick={() => window.location.reload()} className="block mx-auto text-[9px] font-black text-white uppercase tracking-widest underline underline-offset-8 mt-4 hover:text-[var(--accent)]">Retry Handshake</button>
-              </div>
-            )}
-          </div>
+          {status === 'denied' && (
+            <div className="p-8 bg-red-500/10 border border-red-500/30 text-center rounded-sm">
+              <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">Acoustic Error</p>
+              <p className="text-gray-500 text-xs mt-2 italic">Please enable microphone access in your browser settings to continue.</p>
+            </div>
+          )}
         </div>
       </div>
-
-      <style>{`
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
-      `}</style>
     </div>
   );
 };

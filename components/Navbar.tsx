@@ -1,9 +1,7 @@
 
 import React, { useState } from 'react';
-/* Fixed: Ensure Link is imported correctly from react-router-dom */
 import { Link } from 'react-router-dom';
 import Logo from './Logo';
-import { readJson } from '../utils/safeStorage';
 
 interface NavbarProps {
   onReportBug: () => void;
@@ -12,39 +10,21 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Use namespaced readJson
-  const profile = readJson<any>('aca_author_profile', { showTooltips: true });
-  const showTooltips = profile.showTooltips !== false;
-
-  const NavItem = ({ to, label, title, subtitle, variant = "default" }: { to: string, label: string, title: string, subtitle: string, variant?: "default" | "orange" }) => (
-    <div className="relative group/tooltip">
-      <Link 
-        to={to} 
-        className={`px-2 py-2 text-[10px] font-black tracking-[0.3em] uppercase transition-all whitespace-nowrap
-          ${variant === "orange" 
-            ? 'text-white animate-living-accent' 
-            : 'text-gray-400 hover:text-white hover:glow-white'
-          }`}
-      >
-        {label}
-      </Link>
-      {showTooltips && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 pointer-events-none z-[100] w-64 translate-y-2 group-hover/tooltip:translate-y-0">
-          <div className="bg-black border border-white/10 p-5 shadow-2xl rounded-sm backdrop-blur-3xl relative overflow-hidden">
-             {/* Industrial accent line */}
-             <div className={`absolute top-0 left-0 w-full h-[1px] ${variant === "orange" ? 'bg-[var(--accent)]' : 'bg-white/20'}`}></div>
-             <p className={`text-[8px] font-black uppercase tracking-widest mb-1 leading-none ${variant === "orange" ? 'text-[var(--accent)]' : 'text-white'}`}>{title}</p>
-             <p className="text-[10px] text-gray-500 italic leading-tight font-serif">{subtitle}</p>
-          </div>
-          {/* Tooltip arrow */}
-          <div className="w-2 h-2 bg-black border-l border-t border-white/10 rotate-45 absolute -top-1 left-1/2 -translate-x-1/2"></div>
-        </div>
-      )}
-    </div>
+  const NavItem = ({ to, label, variant = "default" }: { to: string, label: string, variant?: "default" | "orange" }) => (
+    <Link 
+      to={to} 
+      className={`px-3 py-2 text-[10px] font-black tracking-[0.3em] uppercase transition-all whitespace-nowrap
+        ${variant === "orange" 
+          ? 'text-white animate-living-accent' 
+          : 'text-gray-400 hover:text-white'
+        }`}
+    >
+      {label}
+    </Link>
   );
 
   return (
-    <nav className="fixed w-full z-50 bg-[#050505]/95 backdrop-blur-3xl border-b border-white/[0.03]">
+    <nav className="fixed w-full z-[100] bg-[#050505]/80 backdrop-blur-2xl border-b border-white/[0.03]">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[var(--accent)]/30 to-transparent"></div>
       
       <div className="w-full h-24 flex items-center justify-between">
@@ -53,62 +33,31 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
             <Link to="/" className="group block overflow-visible pointer-events-auto">
               <Logo 
                 variant="light" 
-                className="h-48 w-auto transition-all duration-500 group-hover:scale-105 filter drop-shadow-[0_0_30px_rgba(255,255,255,0.08)]" 
+                className="h-48 w-auto transition-all duration-500 group-hover:scale-105" 
               />
             </Link>
           </div>
           
           <div className="hidden xl:flex items-center self-end pb-8 ml-8">
              <Link 
-               to="/mission"
+               to="/origin-story"
                className="text-[8px] font-black uppercase tracking-[0.4em] flex items-center gap-2 hover:opacity-100 transition-all group"
                style={{ color: 'var(--accent)' }}
              >
                <span className="w-1 h-1 rounded-full animate-pulse animate-living-amber-bg"></span>
-               Protocol Beta 4.2
+               Origin Story
                <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">→</span>
              </Link>
           </div>
         </div>
         
         <div className="hidden md:flex items-center space-x-6 pr-12 lg:pr-20">
-          <NavItem 
-            to="/published-books" 
-            label="Books" 
-            title="The Storefront" 
-            subtitle="Explore published volumes of carceral and systemic legacy." 
-          />
-          <NavItem 
-            to="/narratives" 
-            label="Narratives" 
-            title="Public Archives" 
-            subtitle="A registry of unfiltered human experiences from behind the walls." 
-          />
-          <NavItem 
-            to="/author-builder" 
-            label="MAKE A WRAP SHEET" 
-            title="WRAP Workspace" 
-            subtitle="Draft and refine your legacy. Personalize your WRAP Profile here." 
-          />
-          <NavItem 
-            to="/sovereign-vault" 
-            label="The Big House" 
-            title="Permanent Vault" 
-            subtitle="Immutable digital security for your archives and Courier Codes." 
-            variant="orange"
-          />
+          <NavItem to="/published-books" label="Books" />
+          <NavItem to="/narratives" label="Archive" />
+          <NavItem to="/author-builder" label="Forge" variant="orange" />
+          <NavItem to="/sovereign-vault" label="The Vault" />
 
-          <div className="relative group/tooltip">
-            <Link to="/wrap-it-up" className="animate-living-amber-bg text-white px-5 py-2 text-[9px] font-black tracking-[0.3em] uppercase transition-all hover:brightness-110 rounded-sm">Mastering Suite</Link>
-            {showTooltips && (
-              <div className="absolute top-full right-0 mt-4 opacity-0 group-hover/tooltip:opacity-100 transition-all duration-300 pointer-events-none z-[100] w-64 translate-y-2 group-hover/tooltip:translate-y-0">
-                <div className="bg-black border border-[var(--accent)]/20 p-5 shadow-2xl rounded-sm backdrop-blur-3xl">
-                   <p className="text-[8px] font-black uppercase tracking-widest mb-1 leading-none" style={{ color: 'var(--accent)' }}>The Audit Desk</p>
-                   <p className="text-[10px] text-gray-500 italic leading-tight font-serif">Perform legal safety audits and format for Substack or print distribution.</p>
-                </div>
-              </div>
-            )}
-          </div>
+          <Link to="/wrap-it-up" className="animate-living-amber-bg text-white px-5 py-2 text-[9px] font-black tracking-[0.3em] uppercase transition-all hover:brightness-110 rounded-sm">Mastering</Link>
 
           <div className="h-4 w-[1px] bg-white/10 mx-2"></div>
 
@@ -117,17 +66,17 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
             className="text-red-500/40 hover:text-red-500 px-2 py-2 text-[9px] font-black tracking-[0.3em] uppercase transition-all flex items-center gap-2"
           >
             <div className="w-1 h-1 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
-            Bug
+            Report
           </button>
         </div>
 
         <div className="md:hidden flex items-center pr-6">
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 text-gray-400 hover:text-white focus:outline-none"
+            className="p-2 text-gray-400 hover:text-white"
           >
             <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d={isOpen ? "M6 18L18 6M6 6l12 12" : "M4 8h16M4 16h16"} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d={isOpen ? "M6 18L18 6 " : "M4 8h16M4 16h16"} />
             </svg>
           </button>
         </div>
@@ -135,12 +84,11 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
 
       <div className={`${isOpen ? 'block' : 'hidden'} md:hidden bg-[#050505] h-screen border-t border-white/5`}>
         <div className="px-12 pt-12 pb-3 space-y-8 flex flex-col items-center">
+          <Link to="/" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Home</Link>
           <Link to="/published-books" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Books</Link>
-          <Link to="/narratives" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Narratives</Link>
-          <Link to="/author-builder" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2 animate-living-accent">MAKE A WRAP SHEET</Link>
-          <Link to="/sovereign-vault" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2">The Big House</Link>
-          <Link to="/wrap-it-up" onClick={() => setIsOpen(false)} className="text-[var(--accent)]/60 text-xl font-serif italic py-2 animate-living-accent">Mastering Suite</Link>
-          <Link to="/mission" onClick={() => setIsOpen(false)} className="text-gray-500 text-xl font-sans uppercase tracking-[0.3em] py-2">Mission</Link>
+          <Link to="/narratives" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Archive</Link>
+          <Link to="/author-builder" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2 animate-living-accent">Forge</Link>
+          <Link to="/sovereign-vault" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2">Vault</Link>
         </div>
       </div>
     </nav>

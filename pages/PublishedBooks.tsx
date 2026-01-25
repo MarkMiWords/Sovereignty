@@ -252,9 +252,9 @@ const PublishedBooks: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 border-b border-white/5">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-fade-in">
           <div>
-            <span className="text-[var(--accent)] tracking-[0.6em] uppercase text-[10px] font-bold mb-6 block">Master Registry</span>
-            <h1 className="text-6xl md:text-9xl font-serif font-black mb-12 italic leading-none tracking-tighter uppercase text-white">Book <span className="animate-living-amber">Registry.</span></h1>
-            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Sovereign Vault V4.0 — High-Fidelity Text & Image Persistence."</p>
+            <span className="text-[var(--accent)] tracking-[0.6em] uppercase text-[10px] font-bold mb-6 block">The Sovereign Registry</span>
+            <h1 className="text-6xl md:text-9xl font-serif font-black mb-12 italic leading-none tracking-tighter uppercase text-white">BOOKS.</h1>
+            <p className="text-xl md:text-2xl text-gray-400 font-light max-w-3xl leading-relaxed italic opacity-80">"Verified masters locked into the Vault (V4.0)."</p>
           </div>
           <div className="pb-12 flex flex-col md:flex-row gap-6">
             <button onClick={() => setIsAddingBook(true)} className="animate-living-amber-bg text-white px-10 py-5 text-[10px] font-black uppercase tracking-[0.4em] shadow-xl hover:brightness-110 transition-all rounded-sm">Register Master</button>

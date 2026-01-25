@@ -32,7 +32,12 @@ const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.body.style.overflow = "auto";
+    // Force hidden overflow on home page to maintain portal aesthetic
+    if (pathname === '/') {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
   }, [pathname]);
   return null;
 };
@@ -61,7 +66,7 @@ const App: React.FC = () => {
         <ScrollToTop />
         <MicHandshake />
         <Navbar onReportBug={() => setIsBugModalOpen(true)} />
-        <main className="flex-grow pt-24 relative">
+        <main className="flex-grow pt-0 md:pt-24 relative">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/storefront" element={<Storefront />} />

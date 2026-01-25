@@ -237,9 +237,13 @@ export const interactWithAurora = async (message: string): Promise<string> => {
   return response.text || "I am listening.";
 };
 
-export const generateImage = async (description: string): Promise<{ imageUrl: string }> => {
+export const generateImage = async (description: string, isScene: boolean = false): Promise<{ imageUrl: string }> => {
   const ai = getAI();
-  const industrialPrompt = `A high-quality, cinematic book cover for a prison narrative. Style: Minimalist, dramatic lighting, gritty texture, industrial aesthetic. Themes: ${description}. Aspect Ratio 16:9. Colors: Black, white, and high-contrast orange.`;
+  
+  // Adjusted prompt for scene visualization vs book covers
+  const industrialPrompt = isScene 
+    ? `A high-quality cinematic scene. Cinematic noir photography. Extremely detailed. High contrast. Industrial carceral aesthetic. Focus on: ${description}. Lighting: Low-key, dramatic, shadows. Atmosphere: Heavy, emotional, raw. Color palette: Monochromatic with subtle orange or blue highlights.`
+    : `A high-quality, cinematic book cover for a prison narrative. Style: Minimalist, dramatic lighting, gritty texture, industrial aesthetic. Themes: ${description}. Aspect Ratio 16:9. Colors: Black, white, and high-contrast orange.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
