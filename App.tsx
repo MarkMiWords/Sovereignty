@@ -27,12 +27,12 @@ import Footer from './components/Footer';
 import BugReportModal from './components/BugReportModal';
 import MicHandshake from './components/MicHandshake';
 import { readJson } from './utils/safeStorage';
+import { AcousticLinkProvider } from './context/AcousticLinkContext';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
-    // Force hidden overflow on home page to maintain portal aesthetic
     if (pathname === '/') {
       document.body.style.overflow = "hidden";
     } else {
@@ -61,41 +61,43 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <Router>
-      <div className="flex flex-col min-h-screen bg-[#050505]">
-        <ScrollToTop />
-        <MicHandshake />
-        <Navbar onReportBug={() => setIsBugModalOpen(true)} />
-        <main className="flex-grow pt-0 md:pt-24 relative">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/storefront" element={<Storefront />} />
-            <Route path="/published-books" element={<PublishedBooks />} />
-            <Route path="/book/:slug" element={<BookDetails />} />
-            <Route path="/narratives" element={<Narratives />} />
-            <Route path="/art-gallery" element={<ArtGallery />} />
-            <Route path="/mission" element={<Mission />} />
-            <Route path="/why-publish" element={<WhyPublish />} />
-            <Route path="/substack-bridge" element={<SubstackBridge />} />
-            <Route path="/support" element={<Support />} />
-            <Route path="/security" element={<Security />} />
-            <Route path="/virty-dating" element={<Kindred />} />
-            <Route path="/wrapper-info" element={<WrapperInfo />} />
-            <Route path="/origin-story" element={<Origin />} />
-            <Route path="/author-builder" element={<AuthorBuilder />} />
-            <Route path="/sovereign-slate" element={<SovereignSlate />} />
-            <Route path="/sovereign-vault" element={<SovereignVault />} />
-            <Route path="/wrap-it-up" element={<WrapItUp />} />
-            <Route path="/live-protocol" element={<LiveRules />} />
-            <Route path="/live-link" element={<LiveSession />} />
-            <Route path="/blueprints" element={<Blueprints />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-        <Footer />
-        <BugReportModal isOpen={isBugModalOpen} onClose={() => setIsBugModalOpen(false)} />
-      </div>
-    </Router>
+    <AcousticLinkProvider>
+      <Router>
+        <div className="flex flex-col min-h-screen bg-[#050505]">
+          <ScrollToTop />
+          <MicHandshake />
+          <Navbar onReportBug={() => setIsBugModalOpen(true)} />
+          <main className="flex-grow pt-0 md:pt-24 relative">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/storefront" element={<Storefront />} />
+              <Route path="/published-books" element={<PublishedBooks />} />
+              <Route path="/book/:slug" element={<BookDetails />} />
+              <Route path="/narratives" element={<Narratives />} />
+              <Route path="/art-gallery" element={<ArtGallery />} />
+              <Route path="/mission" element={<Mission />} />
+              <Route path="/why-publish" element={<WhyPublish />} />
+              <Route path="/substack-bridge" element={<SubstackBridge />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/security" element={<Security />} />
+              <Route path="/virty-dating" element={<Kindred />} />
+              <Route path="/wrapper-info" element={<WrapperInfo />} />
+              <Route path="/origin-story" element={<Origin />} />
+              <Route path="/author-builder" element={<AuthorBuilder />} />
+              <Route path="/sovereign-slate" element={<SovereignSlate />} />
+              <Route path="/sovereign-vault" element={<SovereignVault />} />
+              <Route path="/wrap-it-up" element={<WrapItUp />} />
+              <Route path="/live-protocol" element={<LiveRules />} />
+              <Route path="/live-link" element={<LiveSession />} />
+              <Route path="/blueprints" element={<Blueprints />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+          <Footer />
+          <BugReportModal isOpen={isBugModalOpen} onClose={() => setIsBugModalOpen(false)} />
+        </div>
+      </Router>
+    </AcousticLinkProvider>
   );
 };
 
