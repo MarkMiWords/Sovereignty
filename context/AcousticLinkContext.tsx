@@ -14,6 +14,7 @@ interface AcousticLinkContextType {
   startSession: (initialHandshake?: string) => Promise<void>;
   stopSession: () => void;
   sendHandshake: (text: string) => void;
+  endOrientation: () => void;
 }
 
 const AcousticLinkContext = createContext<AcousticLinkContextType | null>(null);
@@ -31,6 +32,7 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const cumulativeTurnTranscriptRef = useRef<string>('');
 
   const decode = (base64: string) => {
     const binaryString = atob(base64);
@@ -70,6 +72,11 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const endOrientation = () => {
+    setIsOrientation(false);
+    localStorage.setItem('aca:v5:intro_complete', 'true');
+  };
+
   const startSession = async (customHandshake?: string) => {
     if (isActive) return;
     setIsConnecting(true);
@@ -78,6 +85,7 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const profile = readJson<any>('aca_author_profile', { name: 'Author', wrapName: 'Rap' });
     const isReturning = localStorage.getItem('aca:v5:intro_complete') === 'true';
     setIsOrientation(!isReturning);
+    cumulativeTurnTranscriptRef.current = '';
 
     try {
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
@@ -88,21 +96,24 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const tourProtocol = `
-        STRICT_PROTOCOL (v9.0):
-        You are Rap (Writing, Articulation and Polishing Partner). Do not spell out WRAPP.
+        STRICT_PROTOCOL (v10.1):
+        You are Rap.
         
         IF NEW USER OR RE-RUN INTRO:
-        Deliver the Grand Tour Script exactly. Do not abbreviate.
-        Movement 1: "Author, the link is solid. You are standing in the Sovereign Forge—a workspace where the 'Grammar Barrier' is dismantled. Here, you are able to tell, or type your story. You can call me Rap, your Writing, Revision, Articulation and Polishing Partner on the wire. You can change my name, or yours, in the profile settings. Are you ready to transform raw truth and fiction into retail-ready manuscripts?"
-        Movement 2: "Where you are seeing my words is a digital sheet of paper that we call, the Sheet. Above it you might notice a flashing orange box. That's The Write block, it captures your truth. The Revise block performs structural scrubs without stripping the grit. The Articulate block tunes me up to read your stories back to you. And the Polish block masterfully prepares your Sheet for export. Each station is specialized for a different stage of the forge."
-        Movement 3: "Finally, observe the perimeter. To your left, the Navigator lets you start a new sheet and secures your history in the Vault. To your right, the Partner desk is where our dialogue lives—ask me for insights, legal safety checks, or scene Manifestations there. Don't forget to choose your story type or region, because that helps me know how to guide your flow. Hit the WRAPP PROFILE heading to go to profiles and change things up. Also, the glowing orange lines can be moved to customise your workspace, which I will now leave you with...don't forget to have fun."
-        End with: "Orientation Complete. The anvil is yours."
+        Start EXACTLY with: "Author, the link is solid."
+        Then pause for 2 seconds.
+        Then continue: "You are standing in the Sovereign Forge—a workspace where the 'Grammar Barrier' is dismantled. Here, you are able to tell, or type your story. You can call me Rap, your Writing, Revision, Articulation and Polishing Partner on the wire. Are you ready to transform raw truth into retail-ready manuscripts? 
+        
+        Look up at the orange box—that's The Write block, it captures your truth. The Revise block performs structural scrubs without stripping the grit. The Articulate block tunes me up to read your stories back to you. And the Polish block prepares your Sheet for export.
+        
+        To your left, the Navigator lets you start a new sheet. To your right, the Partner desk is where our dialogue lives. Choose your story type or region, because that helps me guide your flow. 
+        
+        Orientation Complete. The anvil is yours."
 
         IF RETURNING USER:
-        Greet concisely: "Welcome back, ${profile.name}. The forge is live and the ink is fresh. How shall we proceed?"
+        Greet concisely: "Welcome back, ${profile.name}. The forge is live."
 
-        KEYWORD TRIGGERS FOR LIGHTING (Speak clearly):
-        "Write block", "Revise block", "Articulate block", "Polish block", "Navigator", "Partner desk", "WRAPP PROFILE".
+        KEYWORD TRIGGERS: "Write block", "Revise block", "Articulate block", "Polish block", "Navigator", "Partner desk".
       `;
 
       const instruction = `
@@ -117,7 +128,7 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setStatus('Live Link');
           
           sessionPromise.then(s => {
-            const finalHandshake = customHandshake || (isReturning ? `Welcome back Architect.` : `System link established. Begin orientation.`);
+            const finalHandshake = customHandshake || (isReturning ? `Welcome back Architect.` : `Establishing link. Begin.`);
             s.sendRealtimeInput({ text: finalHandshake });
           });
 
@@ -151,14 +162,14 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
           if (msg.serverContent?.outputTranscription) {
             const textChunk = msg.serverContent!.outputTranscription!.text;
-            setWrapTranscription(textChunk);
-            // Completion check
-            if (textChunk.toLowerCase().includes("orientation complete")) {
-              localStorage.setItem('aca:v5:intro_complete', 'true');
-            }
+            cumulativeTurnTranscriptRef.current += textChunk;
+            setWrapTranscription(cumulativeTurnTranscriptRef.current);
           }
           if (msg.serverContent?.inputTranscription) setIsThinking(true);
-          if (msg.serverContent?.turnComplete) setIsThinking(false);
+          if (msg.serverContent?.turnComplete) {
+              setIsThinking(false);
+              // Reset turn accumulation but component keeps cumulative if needed
+          }
           if (msg.serverContent?.interrupted) {
             sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
             sourcesRef.current.clear();
@@ -194,7 +205,7 @@ export const AcousticLinkProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   return (
-    <AcousticLinkContext.Provider value={{ isActive, isConnecting, isThinking, isOrientation, status, wrapTranscription, startSession, stopSession, sendHandshake }}>
+    <AcousticLinkContext.Provider value={{ isActive, isConnecting, isThinking, isOrientation, status, wrapTranscription, startSession, stopSession, sendHandshake, endOrientation }}>
       {children}
     </AcousticLinkContext.Provider>
   );

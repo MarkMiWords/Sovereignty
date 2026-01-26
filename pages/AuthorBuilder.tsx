@@ -15,14 +15,6 @@ const PERSONALITIES = ['Timid', 'Cool', 'Mild', 'Natural', 'Wild', 'Firebrand'];
 
 const DEFAULT_CHAPTER: Chapter = { id: '1', title: "", content: '', order: 0, media: [], subChapters: [] };
 
-const CALIBRATION_SCRIPTS = [
-  { id: '1', text: "My story is my truth. No one else can tell it for me. I am building my legacy one page at a time." },
-  { id: '2', text: "The walls are concrete, but my words can cross the wire. I am forging meaning from the friction of the system." },
-  { id: '3', text: "Identity is the first thing they try to take, and the last thing we will ever give up. I reclaim my voice." },
-  { id: '4', text: "I have seen the darkness of the hole and the brightness of the gate. Every step I take now is defined by my own stride." },
-  { id: '5', text: "They can lock the body, but the mind remains a sovereign territory. My ink is my evidence of existence." }
-];
-
 function encode(bytes: Uint8Array) {
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
@@ -37,7 +29,7 @@ const createBlob = (data: Float32Array) => {
 
 const AuthorBuilder: React.FC = () => {
   const navigate = useNavigate();
-  const { isActive: isLiveActive, isThinking: isLiveThinking, isOrientation, wrapTranscription, startSession, stopSession: stopLiveSession } = useAcousticLink();
+  const { isActive: isLiveActive, isThinking: isLiveThinking, isOrientation, wrapTranscription, stopSession: stopLiveSession, endOrientation } = useAcousticLink();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -73,13 +65,15 @@ const AuthorBuilder: React.FC = () => {
   // LUMINOUS STROBE SYNC
   const [strobeStage, setStrobeStage] = useState<string | null>(null);
   const strobeTimeoutRef = useRef<number | null>(null);
+  const triggeredCues = useRef<Set<string>>(new Set());
 
-  // TYPING BUFFER SYNC (Acoustic Ink)
-  const transcriptionBufferRef = useRef<string>('');
-  const typedCharactersCountRef = useRef<number>(0);
+  // SCRIBE ENGINE (Ref-based to prevent render loops)
+  const fullTranscriptRef = useRef<string>('');
+  const typedTitleLenRef = useRef(0);
+  const typedBodyLenRef = useRef(0);
   const [isHeadingComplete, setIsHeadingComplete] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
-  const [introJustFinished, setIntroJustFinished] = useState(false);
+  const [isAnvilHandedOver, setIsAnvilHandedOver] = useState(false);
 
   const [style, setStyle] = useState(() => readJson<any>('aca_author_profile', {}).motivation || STYLES[2]);
   const [region, setRegion] = useState(() => readJson<any>('aca_author_profile', {}).region || REGIONS[1]);
@@ -101,7 +95,6 @@ const AuthorBuilder: React.FC = () => {
 
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
   const [calibrationProgress, setCalibrationProgress] = useState(0);
-  const [activeScriptIndex, setActiveScriptIndex] = useState(0);
 
   const [isDictating, setIsDictating] = useState(false);
   const [dictationTarget, setDictationTarget] = useState<'sheet' | 'partner' | null>(null);
@@ -119,73 +112,83 @@ const AuthorBuilder: React.FC = () => {
     }
   }, []);
 
-  // Transcription Observer: Handling UI Strobe & Typing Buffer
+  // Sync turn transcript and monitor triggers
   useEffect(() => {
+    if (!wrapTranscription) {
+        triggeredCues.current.clear();
+        return;
+    }
+    fullTranscriptRef.current = wrapTranscription;
     const text = wrapTranscription.toLowerCase();
     
-    // 1. Handle Luminous UI Sync
-    let trigger: string | null = null;
-    if (text.includes('write block')) trigger = 'amber';
-    else if (text.includes('revise block')) trigger = 'red';
-    else if (text.includes('articulate block')) trigger = 'blue';
-    else if (text.includes('polish block')) trigger = 'green';
-    else if (text.includes('navigator')) trigger = 'cyan';
-    else if (text.includes('partner desk')) trigger = 'orange';
-    else if (text.includes('wrapp profile')) trigger = 'magenta';
+    // Lighting Trigger Logic - Sequential Cue Mapping
+    const cues = [
+      { key: 'write block', trigger: 'amber' },
+      { key: 'revise block', trigger: 'red' },
+      { key: 'articulate block', trigger: 'blue' },
+      { key: 'polish block', trigger: 'green' },
+      { key: 'navigator', trigger: 'cyan' },
+      { key: 'partner desk', trigger: 'orange' },
+      { key: 'wrapp profile', trigger: 'magenta' }
+    ];
 
-    if (trigger) {
-      if (strobeTimeoutRef.current) window.clearTimeout(strobeTimeoutRef.current);
-      setStrobeStage(trigger);
-      strobeTimeoutRef.current = window.setTimeout(() => setStrobeStage(null), 4000);
-    }
+    cues.forEach(cue => {
+      if (text.includes(cue.key) && !triggeredCues.current.has(cue.key)) {
+        triggeredCues.current.add(cue.key);
+        if (strobeTimeoutRef.current) window.clearTimeout(strobeTimeoutRef.current);
+        setStrobeStage(cue.trigger);
+        strobeTimeoutRef.current = window.setTimeout(() => setStrobeStage(null), 4000);
+      }
+    });
 
-    // 2. Feed the transcription buffer for orientation
-    if (isOrientation && wrapTranscription) {
-        transcriptionBufferRef.current = wrapTranscription;
-        
-        // Final completion check for strobe
-        if (text.includes("orientation complete") || text.includes("anvil is yours")) {
-          setIntroJustFinished(true);
-        }
+    // Completion / Handover Trigger
+    if (isOrientation && (text.includes("orientation complete") || text.includes("anvil is yours"))) {
+      setIsAnvilHandedOver(true);
     }
   }, [wrapTranscription, isOrientation]);
 
-  // TYPING SPEED CONTROL (Acoustic Ink) - Flows Rap's words onto the page
+  // SCRIBE SCRIBE ENGINE: Typing Effect
   useEffect(() => {
     if (!isOrientation) return;
 
-    const typeTimer = setInterval(() => {
-        const fullText = transcriptionBufferRef.current;
+    const scribeTimer = setInterval(() => {
+        const fullText = fullTranscriptRef.current.trim();
         if (!fullText || isPausing) return;
 
         const greeting = "Author, the link is solid.";
         
-        if (typedCharactersCountRef.current < fullText.length) {
-            const nextCharIndex = typedCharactersCountRef.current + 1;
-            const currentSubstr = fullText.substring(0, nextCharIndex);
-
-            if (currentSubstr.length <= greeting.length) {
-                // Typying the heading
-                setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, title: currentSubstr } : c));
-                typedCharactersCountRef.current = nextCharIndex;
+        // PHASE 1: Heading
+        if (!isHeadingComplete) {
+            if (typedTitleLenRef.current < greeting.length) {
+                const nextLen = typedTitleLenRef.current + 1;
+                const nextTitle = greeting.substring(0, nextLen);
+                typedTitleLenRef.current = nextLen;
+                setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, title: nextTitle } : c));
                 
-                // If heading just finished, trigger dramatic pause
-                if (currentSubstr.length === greeting.length) {
+                if (nextTitle === greeting) {
                     setIsHeadingComplete(true);
                     setIsPausing(true);
-                    setTimeout(() => setIsPausing(false), 2000); // Dramatic 2s pause
+                    setTimeout(() => setIsPausing(false), 2500); 
                 }
-            } else if (isHeadingComplete) {
-                // Typing the body
-                setChapters(prev => prev.map(c => c.id === activeChapterId 
-                    ? { ...c, content: currentSubstr.substring(greeting.length).trim() } 
-                    : c));
-                typedCharactersCountRef.current = nextCharIndex;
+            }
+        } 
+        // PHASE 2: Body
+        else {
+            const lowText = fullText.toLowerCase();
+            const gPos = lowText.indexOf(greeting.toLowerCase());
+            if (gPos === -1) return;
+
+            const bodySource = fullText.substring(gPos + greeting.length).trim();
+            if (typedBodyLenRef.current < bodySource.length) {
+                const nextLen = typedBodyLenRef.current + 1;
+                const nextContent = bodySource.substring(0, nextLen);
+                typedBodyLenRef.current = nextLen;
+                setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: nextContent } : c));
             }
         }
-    }, 45);
+    }, 45); 
 
-    return () => clearInterval(typeTimer);
+    return () => clearInterval(scribeTimer);
   }, [isOrientation, activeChapterId, isHeadingComplete, isPausing]);
 
   useEffect(() => {
@@ -220,39 +223,45 @@ const AuthorBuilder: React.FC = () => {
     }, 1000);
   }, [chapters]);
 
-  const handleNewSheet = () => {
+  const handleNewSheet = (e?: React.MouseEvent) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    
+    // 1. Archive tour to vault if finishing orientation
+    if (isOrientation) {
+      const vault = readJson<VaultStorage>('sovereign_vault', { sheets: [], books: [], ai: [], audits: [] });
+      const tourSheet: VaultSheet = {
+        id: `tour-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        status: 'archived',
+        data: activeChapter
+      };
+      vault.sheets = [tourSheet, ...(vault.sheets || [])];
+      writeJson('sovereign_vault', vault);
+      endOrientation();
+    }
+
+    // 2. Create the fresh sheet
     const newId = Date.now().toString(); 
     setChapters(prev => [{ ...DEFAULT_CHAPTER, id: newId, title: "" }, ...prev]); 
     setActiveChapterId(newId);
+    
+    // 3. Reset internal tour states
     setHasBeenRinsed(false);
     setActiveSceneImage(null);
-    setIntroJustFinished(false);
-    typedCharactersCountRef.current = 0; 
+    setIsAnvilHandedOver(false);
     setIsHeadingComplete(false);
     setIsPausing(false);
-    setTimeout(() => titleInputRef.current?.focus(), 50);
+    fullTranscriptRef.current = '';
+    typedTitleLenRef.current = 0;
+    typedBodyLenRef.current = 0;
+    triggeredCues.current.clear();
+    
+    setTimeout(() => titleInputRef.current?.focus(), 100);
   };
 
   const handleWrappChatToggle = async () => {
-    if (isLiveActive) {
-      stopLiveSession();
-    } else {
-      // Re-linking always goes through guardrails per user request
-      navigate('/live-protocol');
-    }
-  };
-
-  const handleSaveToVault = () => {
-    const vault = readJson<VaultStorage>('sovereign_vault', { sheets: [], books: [], ai: [], audits: [] });
-    const newVaultSheets: VaultSheet[] = chapters.map(c => ({
-      id: `vault-${c.id}-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      status: 'archived',
-      data: c
-    }));
-    vault.sheets = [...newVaultSheets, ...(vault.sheets || [])];
-    writeJson('sovereign_vault', vault);
-    alert("Saved to Big House Vault.");
+    if (isLiveActive) stopLiveSession();
+    else navigate('/live-protocol');
   };
 
   const handlePartnerChat = async (e?: React.FormEvent, customMsg?: string) => {
@@ -276,45 +285,19 @@ const AuthorBuilder: React.FC = () => {
 
   const handleSoap = async (level: string, block: 'revise' | 'polish'): Promise<string> => {
     if (!activeChapter.content?.trim()) return activeChapter.content;
-    if (block === 'revise') {
-        setIsProcessingRevise(true);
-        setActiveRevisionType(level);
-    } else {
-        setIsProcessingPolish(true);
-    }
+    if (block === 'revise') { setIsProcessingRevise(true); setActiveRevisionType(level); } 
+    else { setIsProcessingPolish(true); }
     try {
       const result = await smartSoap(activeChapter.content, level, style, region, personality);
       setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: result.text } : c));
       if (level === 'rinse') setHasBeenRinsed(true);
       return result.text;
-    } catch (err: any) {
-      return activeChapter.content;
-    } finally { 
-        setIsProcessingRevise(false); 
-        setIsProcessingPolish(false); 
-        setActiveRevisionType(null);
-    }
-  };
-
-  const handleForgeScene = async () => {
-    if (!activeChapter.content?.trim() || isGeneratingScene) return;
-    setIsGeneratingScene(true);
-    try {
-      const result = await generateImage(activeChapter.content.substring(0, 500), true);
-      setActiveSceneImage(result.imageUrl);
-      setShowSceneMood(true);
-    } catch (err) {
-      alert("Visualization engine stalled.");
-    } finally {
-      setIsGeneratingScene(false);
-    }
+    } catch (err: any) { return activeChapter.content; } 
+    finally { setIsProcessingRevise(false); setIsProcessingPolish(false); setActiveRevisionType(null); }
   };
 
   const handleArticulate = async () => {
-    if (isAcousticActive || isProcessingSpeak) {
-        stopAcoustic();
-        return;
-    }
+    if (isAcousticActive || isProcessingSpeak) { stopAcoustic(); return; }
     if (!activeChapter.content?.trim()) return;
     let textToSpeak = activeChapter.content;
     if (!hasBeenRinsed) textToSpeak = await handleSoap('rinse', 'revise');
@@ -324,16 +307,11 @@ const AuthorBuilder: React.FC = () => {
       const voice = isCloneActive ? 'Zephyr' : (gender === 'Female' ? 'Puck' : 'Kore');
       const audioBase64 = await generateSpeech(result.text.substring(0, 1000), voice);
       await playSpeech(audioBase64);
-    } catch (err: any) {
-      stopAcoustic();
-    }
+    } catch (err: any) { stopAcoustic(); }
   };
 
   const stopAcoustic = () => {
-    if (audioSourceRef.current) {
-        try { audioSourceRef.current.stop(); } catch(e) {}
-        audioSourceRef.current = null;
-    }
+    if (audioSourceRef.current) { try { audioSourceRef.current.stop(); } catch(e) {} audioSourceRef.current = null; }
     setIsAcousticActive(false);
     setIsProcessingSpeak(false);
   };
@@ -352,10 +330,7 @@ const AuthorBuilder: React.FC = () => {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
-      source.onended = () => {
-        setIsAcousticActive(false);
-        setIsProcessingSpeak(false);
-      };
+      source.onended = () => { setIsAcousticActive(false); setIsProcessingSpeak(false); };
       audioSourceRef.current = source;
       setIsAcousticActive(true);
       setIsProcessingSpeak(false);
@@ -447,7 +422,7 @@ const AuthorBuilder: React.FC = () => {
                  </div>
                  <p className="text-lg font-serif italic text-white/90 leading-tight">"{wrapTranscription || "Observing Architect..."}"</p>
               </div>
-              <button onClick={stopLiveSession} className="p-3 text-gray-700 hover:text-red-500 transition-colors pointer-events-auto">
+              <button type="button" onClick={stopLiveSession} className="p-3 text-gray-700 hover:text-red-500 transition-colors pointer-events-auto">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2" strokeLinecap="round"/></svg>
               </button>
            </div>
@@ -462,13 +437,15 @@ const AuthorBuilder: React.FC = () => {
       >
         <div className="px-8 mb-6 space-y-4">
            <button 
+             type="button"
              onClick={handleNewSheet} 
-             className={`w-full py-3 text-white text-[9px] font-black uppercase tracking-[0.4em] hover:brightness-110 transition-all shadow-xl rounded-sm ${introJustFinished ? 'animate-intro-finish-strobe' : 'animate-living-amber-bg'}`}
+             className={`w-full py-3 text-[9px] font-black uppercase tracking-[0.4em] transition-all shadow-xl rounded-sm ${isAnvilHandedOver ? 'animate-intro-finish-strobe text-white' : 'bg-black border border-white/5 text-gray-600 hover:text-white'}`}
            >
              + New Sheet
            </button>
            
            <button 
+             type="button"
              onClick={handleWrappChatToggle}
              className={`w-full py-3 border border-[var(--accent)]/40 text-[var(--accent)] text-[9px] font-black uppercase tracking-[0.4em] flex items-center justify-center gap-2 hover:bg-[var(--accent)] hover:text-white transition-all rounded-sm ${isLiveActive ? 'bg-[var(--accent)]/20 text-white border-[var(--accent)]' : ''}`}
            >
@@ -487,9 +464,6 @@ const AuthorBuilder: React.FC = () => {
           ))}
         </div>
         <div className="p-8 border-t border-white/10 bg-black/60 space-y-3">
-           <button onClick={handleSaveToVault} className="w-full py-3 border border-dashed border-white/10 text-[8px] font-black uppercase tracking-widest text-gray-700 hover:text-[var(--accent)] transition-all">
-             Backup to Vault
-           </button>
            <Link to="/sovereign-vault" className="block text-center text-[7px] text-gray-800 uppercase font-black hover:text-cyan-500 transition-all">Sovereign Registry</Link>
         </div>
       </aside>
@@ -509,10 +483,8 @@ const AuthorBuilder: React.FC = () => {
                   </span>
                </div>
                <div className="absolute top-full left-0 w-64 bg-black border border-orange-500 shadow-2xl z-[100] opacity-0 invisible group-hover/write:opacity-100 group-hover/write:visible translate-y-2 group-hover/write:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button onClick={() => fileInputRef.current?.click()} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-orange-500 hover:bg-white/5 border-b border-white/5 transition-colors">Import Files</button>
-                  <button onClick={() => startDictation('sheet')} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${dictationTarget === 'sheet' ? 'text-orange-500 animate-pulse' : 'text-white/40 hover:text-orange-500'}`}>Dictation</button>
-                  <button onClick={handleForgeScene} disabled={isGeneratingScene} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${isGeneratingScene ? 'text-orange-500 animate-pulse' : 'text-white/40 hover:text-orange-500'}`}>Manifest Scene</button>
-                  <button onClick={() => handleSoap('dogg_me', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-orange-500 transition-colors">Dogg Me (Poetry)</button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-orange-500 hover:bg-white/5 border-b border-white/5 transition-colors">Import Files</button>
+                  <button type="button" onClick={() => startDictation('sheet')} className={`w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest border-b border-white/5 transition-colors ${dictationTarget === 'sheet' ? 'text-orange-500 animate-pulse' : 'text-white/40 hover:text-orange-500'}`}>Dictation</button>
                </div>
             </div>
 
@@ -524,10 +496,9 @@ const AuthorBuilder: React.FC = () => {
                   </span>
                </div>
                <div className="absolute top-full left-0 w-64 bg-black border border-red-500 shadow-2xl z-[100] opacity-0 invisible group-hover/revise:opacity-100 group-hover/revise:visible translate-y-2 group-hover/revise:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button onClick={() => handleSoap('rinse', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Rinse (Typos)</button>
-                  <button onClick={() => handleSoap('wash', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 border-b border-white/5 transition-colors">Wash (Structure)</button>
-                  <button onClick={() => handleSoap('scrub', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Scrub (Deep)</button>
-                  <button onClick={() => handleSoap('fact_check', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-500/10 transition-colors">Fact Check</button>
+                  <button type="button" onClick={() => handleSoap('rinse', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-green-500 hover:bg-green-500/10 border-b border-white/5 transition-colors">Rinse (Typos)</button>
+                  <button type="button" onClick={() => handleSoap('wash', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 border-b border-white/5 transition-colors">Wash (Structure)</button>
+                  <button type="button" onClick={() => handleSoap('scrub', 'revise')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Scrub (Deep)</button>
                </div>
             </div>
 
@@ -540,41 +511,10 @@ const AuthorBuilder: React.FC = () => {
                </div>
                <div className="absolute top-full left-0 w-80 bg-black border border-blue-500 shadow-2xl z-[100] opacity-0 invisible group-hover/articulate:opacity-100 group-hover/articulate:visible translate-y-2 group-hover/articulate:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
                   <div className="p-6 space-y-6 bg-black/95">
-                     <button onClick={() => setShowCalibrationModal(true)} className={`w-full py-3 border text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${isCloneActive ? 'bg-blue-500 border-blue-500 text-white' : 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10'}`}>
+                     <button type="button" onClick={() => setShowCalibrationModal(true)} className={`w-full py-3 border text-[10px] font-black uppercase tracking-widest transition-all rounded-sm ${isCloneActive ? 'bg-blue-500 border-blue-500 text-white' : 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10'}`}>
                         {isCloneCalibrated ? (isCloneActive ? 'Vocal Identity: Active' : 'Enable My Voice') : 'Clone My Voice'}
                      </button>
-                     
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Gender</p>
-                           <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full bg-black border border-white/10 text-[9px] font-black uppercase p-2 text-blue-400 outline-none">
-                              {['Male', 'Female', 'Neutral'].map(g => <option key={g} value={g}>{g}</option>)}
-                           </select>
-                        </div>
-                        <div className="space-y-2">
-                           <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Matrix</p>
-                           <select value={sound} onChange={(e) => setSound(e.target.value)} className="w-full bg-black border border-white/10 text-[9px] font-black uppercase p-2 text-blue-400 outline-none">
-                              {['Soft', 'Normal', 'Loud'].map(s => <option key={s} value={s}>{s}</option>)}
-                           </select>
-                        </div>
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Accent</p>
-                           <select value={accent} onChange={(e) => setAccent(e.target.value)} className="w-full bg-black border border-white/10 text-[9px] font-black uppercase p-2 text-blue-400 outline-none">
-                              {['AU', 'UK', 'US'].map(a => <option key={a} value={a}>{a}</option>)}
-                           </select>
-                        </div>
-                        <div className="space-y-2">
-                           <p className="text-[7px] text-gray-600 uppercase font-black tracking-widest">Speed</p>
-                           <select value={speed} onChange={(e) => setSpeed(e.target.value)} className="w-full bg-black border border-white/10 text-[9px] font-black uppercase p-2 text-blue-400 outline-none">
-                              {['1x', '1.25x', '1.5x'].map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                           </select>
-                        </div>
-                     </div>
-
-                     <button onClick={handleArticulate} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl">
+                     <button type="button" onClick={handleArticulate} className="w-full py-4 bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-all rounded-sm shadow-xl">
                        {isAcousticActive ? 'Stop Forging' : 'Vocalize Forge'}
                      </button>
                   </div>
@@ -589,10 +529,8 @@ const AuthorBuilder: React.FC = () => {
                   </span>
                </div>
                <div className="absolute top-full right-0 w-64 bg-black border border-green-500 shadow-2xl z-[100] opacity-0 invisible group-hover/polish:opacity-100 group-hover/polish:visible translate-y-2 group-hover/polish:translate-y-0 transition-all duration-200 rounded-sm overflow-hidden">
-                  <button onClick={() => handleSoap('polish_story', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish Story</button>
-                  <button onClick={() => handleSoap('polish_poetry', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish Poetry</button>
-                  <button onClick={() => handleSoap('sanitise', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Sanitise PII</button>
-                  <button onClick={() => handleSoap('polish_turd', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 transition-colors">Polish a Turd</button>
+                  <button type="button" onClick={() => handleSoap('polish_story', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-green-500 hover:bg-white/5 border-b border-white/5 transition-colors">Polish Story</button>
+                  <button type="button" onClick={() => handleSoap('sanitise', 'polish')} className="w-full text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500/10 border-b border-white/5 transition-colors">Sanitise PII</button>
                </div>
             </div>
         </div>
@@ -604,9 +542,8 @@ const AuthorBuilder: React.FC = () => {
                  type="text" 
                  value={activeChapter.title}
                  onChange={(e) => setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, title: e.target.value } : c))} 
-                 className={`w-full bg-transparent border-none outline-none focus:ring-0 text-white text-3xl md:text-5xl font-serif italic placeholder:text-white/10 tracking-tighter transition-all duration-700 ${isPausing ? 'animate-intro-heading-glow text-orange-500' : isOrientation ? 'text-[var(--accent)] opacity-80' : ''}`}
-                 placeholder={isOrientation ? "" : "Draft Title..."}
-                 readOnly={isOrientation}
+                 className={`w-full bg-transparent border-none outline-none focus:ring-0 text-white text-3xl md:text-5xl font-serif italic placeholder:text-white/10 tracking-tighter transition-all duration-700 ${isPausing ? 'animate-intro-heading-glow text-orange-500' : ''}`}
+                 placeholder="Draft Title..."
                />
           </div>
           <div className="px-12 py-6 flex flex-grow relative">
@@ -615,7 +552,6 @@ const AuthorBuilder: React.FC = () => {
                     <div className="bg-white p-2 pb-10 shadow-[0_30px_60px_rgba(0,0,0,0.8)] -rotate-3 transition-all hover:rotate-0 hover:scale-110 cursor-pointer border border-white/10 relative">
                        <img src={activeSceneImage} className="w-full h-auto grayscale-[0.2] group-hover:grayscale-0 transition-all" alt="Scene Polaroid" />
                        <div className="absolute bottom-2 left-0 w-full text-center text-[8px] text-gray-500 font-serif italic tracking-tighter">Scene Manifested.</div>
-                       <button onClick={() => setShowSceneMood(!showSceneMood)} className="absolute top-2 right-2 bg-black/80 text-white w-5 h-5 rounded-full text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">👁</button>
                     </div>
                  </div>
                )}
@@ -623,9 +559,8 @@ const AuthorBuilder: React.FC = () => {
                  ref={contentInputRef}
                  value={activeChapter.content} 
                  onChange={(e) => setChapters(prev => prev.map(c => c.id === activeChapterId ? { ...c, content: e.target.value } : c))} 
-                 className={`w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-300 text-2xl font-serif leading-[2.2] placeholder:text-white/5 relative z-10 transition-all duration-500 ${isOrientation ? 'opacity-80' : ''}`} 
-                 placeholder={isOrientation ? "" : "Begin your reclamation..."} 
-                 readOnly={isOrientation}
+                 className={`w-full flex-grow bg-transparent border-none outline-none focus:ring-0 resize-none text-gray-300 text-2xl font-serif leading-[2.2] placeholder:text-white/5 relative z-10 transition-all duration-500 ${isAnvilHandedOver ? 'glow-white text-white' : ''}`} 
+                 placeholder="Begin your reclamation..." 
                />
           </div>
         </div>
@@ -661,9 +596,6 @@ const AuthorBuilder: React.FC = () => {
                 <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${strobeStage === 'magenta' ? 'bg-purple-500 shadow-[0_0_10px_purple]' : 'bg-[var(--accent)]'}`}></div>
                 <h3 className={`text-[11px] font-black uppercase tracking-[0.6em] group-hover:underline ${strobeStage === 'magenta' ? 'text-purple-500' : ''}`} style={{ color: strobeStage === 'magenta' ? undefined : 'var(--accent)' }}>WRAPP PROFILE</h3>
              </Link>
-             <button onClick={() => startDictation('partner')} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${dictationTarget === 'partner' ? 'bg-[var(--accent)] text-white animate-pulse' : 'bg-white/5 text-gray-600 hover:text-white'}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-             </button>
         </div>
 
         <div className="px-10 py-6 border-b border-white/5 bg-white/[0.01] grid grid-cols-2 gap-6">
@@ -702,18 +634,14 @@ const AuthorBuilder: React.FC = () => {
       {showCalibrationModal && (
         <div className="fixed inset-0 z-[5000] bg-black/98 backdrop-blur-3xl flex items-center justify-center p-6">
            <div className="max-w-2xl w-full bg-[#0a0a0a] border border-blue-500/30 p-12 rounded-sm shadow-2xl text-center relative">
-              <button onClick={() => setShowCalibrationModal(false)} className="absolute top-6 right-6 text-gray-700 hover:text-white text-2xl leading-none">×</button>
+              <button type="button" onClick={() => setShowCalibrationModal(false)} className="absolute top-6 right-6 text-gray-700 hover:text-white text-2xl leading-none">×</button>
               <div className="space-y-10">
                 <div className="space-y-4">
                   <h2 className="text-5xl font-serif font-black italic text-white tracking-tighter">Clone my voice</h2>
                   <p className="text-gray-500 text-sm italic font-light max-w-sm mx-auto">"Read this clearly to let Rap learn your unique frequency."</p>
                 </div>
-                <div className="p-10 bg-black/60 border border-blue-500/10 rounded-sm italic font-serif text-xl text-blue-100 min-h-[160px] flex flex-col items-center justify-center gap-6">
-                    <p className="flex-grow flex items-center">"{CALIBRATION_SCRIPTS[activeScriptIndex].text}"</p>
-                    <button onClick={() => setActiveScriptIndex(prev => (prev + 1) % CALIBRATION_SCRIPTS.length)} className="text-[9px] font-black uppercase tracking-widest text-blue-400/50 hover:text-blue-400 border border-blue-400/20 px-4 py-2 transition-all rounded-full">Flip Script</button>
-                </div>
                 {calibrationProgress === 0 ? (
-                  <button onClick={async () => {
+                  <button type="button" onClick={async () => {
                     setCalibrationProgress(1);
                     const interval = setInterval(() => setCalibrationProgress(p => {
                       if (p >= 100) { clearInterval(interval); return 100; }
@@ -747,14 +675,15 @@ const AuthorBuilder: React.FC = () => {
         .animate-global-strobe-cyan { animation: global-strobe-cyan 0.8s infinite ease-in-out; }
         .animate-global-strobe-orange { animation: global-strobe-orange 0.8s infinite ease-in-out; }
         .animate-global-strobe-magenta { animation: global-strobe-magenta 0.8s infinite ease-in-out; }
-        @keyframes intro-heading-glow { 0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0); } 50% { text-shadow: 0 0 30px rgba(230,126,34,0.8); } }
-        .animate-intro-heading-glow { animation: intro-heading-glow 2s ease-in-out infinite; }
-        @keyframes intro-finish-strobe { 0%, 100% { background-color: var(--accent); box-shadow: 0 0 0px var(--accent); } 50% { background-color: #fff; box-shadow: 0 0 30px #fff; } }
+        @keyframes intro-heading-glow { 0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0); } 50% { text-shadow: 0 0 40px rgba(230,126,34,1); color: #fff; } }
+        .animate-intro-heading-glow { animation: intro-heading-glow 1.5s ease-in-out infinite; }
+        @keyframes intro-finish-strobe { 0%, 100% { background-color: var(--accent); box-shadow: 0 0 0px var(--accent); } 50% { background-color: #fff; box-shadow: 0 0 50px #fff; transform: scale(1.05); } }
         .animate-intro-finish-strobe { animation: intro-finish-strobe 0.8s infinite ease-in-out; }
         @keyframes polaroid-entry { from { opacity: 0; transform: translateY(40px) rotate(12deg); } to { opacity: 1; transform: translateY(0) rotate(-3deg); } }
         .animate-polaroid-entry { animation: polaroid-entry 1s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
         @keyframes fade-in { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fade-in 1s forwards; }
+        .glow-white { text-shadow: 0 0 15px rgba(255,255,255,0.4); }
       `}</style>
       <input type="file" ref={fileInputRef} className="hidden" accept=".docx,.txt" onChange={async (e) => {
         const file = e.target.files?.[0];
