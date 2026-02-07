@@ -27,13 +27,23 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
     <nav className="fixed w-full z-[100] bg-[#050505]/80 backdrop-blur-2xl border-b border-white/[0.03]">
       <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-[var(--accent)]/30 to-transparent"></div>
       
-      <div className="w-full h-24 flex items-center justify-between">
+      <div className="w-full h-16 md:h-24 flex items-center justify-between">
         <div className="flex items-center h-full">
-          <div className="w-80 flex justify-center items-center h-full pt-32 overflow-visible pointer-events-none">
+          {/* Mobile: compact logo with overhang */}
+          <div className="md:hidden w-24 flex justify-center items-center h-full pt-10 overflow-visible pointer-events-none">
+            <Link to="/" className="block overflow-visible pointer-events-auto">
+              <Logo
+                variant="light"
+                className="h-28 w-28"
+              />
+            </Link>
+          </div>
+          {/* Desktop: dramatic hanging logo */}
+          <div className="hidden md:flex w-80 justify-center items-center h-full pt-32 overflow-visible pointer-events-none">
             <Link to="/" className="group block overflow-visible pointer-events-auto">
-              <Logo 
-                variant="light" 
-                className="h-48 w-auto transition-all duration-500 group-hover:scale-105" 
+              <Logo
+                variant="light"
+                className="h-48 w-auto transition-all duration-500 group-hover:scale-105"
               />
             </Link>
           </div>
@@ -54,7 +64,7 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
         <div className="hidden md:flex items-center space-x-6 pr-12 lg:pr-20">
           <NavItem to="/published-books" label="Books" />
           <NavItem to="/narratives" label="Archive" />
-          <NavItem to="/author-builder" label="Forge" variant="orange" />
+          <NavItem to="/forge" label="Forge" variant="orange" />
           <NavItem to="/sovereign-vault" label="The Vault" />
 
           <Link to="/wrap-it-up" className="animate-living-amber-bg text-white px-5 py-2 text-[9px] font-black tracking-[0.3em] uppercase transition-all hover:brightness-110 rounded-sm">Mastering</Link>
@@ -87,7 +97,7 @@ const Navbar: React.FC<NavbarProps> = ({ onReportBug }) => {
           <Link to="/" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Home</Link>
           <Link to="/published-books" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Books</Link>
           <Link to="/narratives" onClick={() => setIsOpen(false)} className="text-gray-300 text-3xl font-serif italic py-2">Archive</Link>
-          <Link to="/author-builder" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2 animate-living-accent">Forge</Link>
+          <Link to="/forge" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2 animate-living-accent">Forge</Link>
           <Link to="/sovereign-vault" onClick={() => setIsOpen(false)} className="text-[var(--accent)] text-3xl font-serif italic py-2">Vault</Link>
         </div>
       </div>

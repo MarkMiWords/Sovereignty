@@ -6,7 +6,30 @@ import { Narrative, Message } from '../types';
 import { readArray, writeJson, k } from '../utils/safeStorage';
 
 const SAMPLE_NARRATIVES: Narrative[] = [
-  { id: 'sample-1', title: 'The Steel Echo', author: 'Mark M.', excerpt: 'The sound of the gate closing isn’t just metal on metal. It’s the sound of a chapter slamming shut on a life you thought was yours.', category: 'Diary', imageUrl: 'https://images.unsplash.com/photo-1541829081725-6f1c93bb3c24?q=80&w=600&auto=format&fit=crop', tags: ['Australian Justice', 'Solitude'], region: 'AU', publishDate: '2024-03-01', stats: { reads: 1200, kindredConnections: 45, reach: 0.8 } }
+  {
+    id: 'sample-1',
+    title: 'Crowing On About Life',
+    author: 'Mark Mi Words',
+    excerpt: 'I call it Port Phillip Paradiso, but this ain\'t no disco. It ain\'t no country club either. This is hell, hey.',
+    category: 'Diary',
+    imageUrl: 'https://images.unsplash.com/photo-1541829081725-6f1c93bb3c24?q=80&w=600&auto=format&fit=crop',
+    tags: ['Substack Origin', 'Verified', 'LINK:https://markmiwords.substack.com/p/crowing-on-about-life'],
+    region: 'AU',
+    publishDate: '2025-01-15',
+    stats: { reads: 840, kindredConnections: 32, reach: 0.9 }
+  },
+  {
+    id: 'sample-2',
+    title: 'Letter from Hakea',
+    author: 'David Orne',
+    excerpt: 'We are in 20 hr lockdown everyday. Sometimes 22 hrs. 3 to a cell. If I couldn\'t do my art I would of done something crazy or gone crazy its starting to take its toll on me. Something needs to change.',
+    category: 'Diary',
+    imageUrl: '/covers/david-orne-painting.jpg',
+    tags: ['About Time', 'Western Australia', 'Art'],
+    region: 'AU',
+    publishDate: '2025-11-16',
+    stats: { reads: 0, kindredConnections: 0, reach: 1.0 }
+  }
 ];
 
 const Narratives: React.FC = () => {
